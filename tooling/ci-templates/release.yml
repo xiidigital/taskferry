@@ -1,0 +1,42 @@
+# Release template for a standalone Taskport package repo using PyPI Trusted
+# Publishing (OIDC). NO API TOKENS ARE STORED (section 40). Copy to
+# `.github/workflows/release.yml` after extraction, then configure the project's
+# Trusted Publisher on PyPI (Owner: repo owner, Workflow: release.yml).
+#
+# Nothing publishes until a GitHub Release is created for this repo.
+
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write   # required for OIDC Trusted Publishing
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      # Trusted Publishing: no username/password, no token — OIDC only.
+      - uses: pypa/gh-action-pypi-publish@release/v1

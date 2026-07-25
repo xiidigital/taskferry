@@ -1,0 +1,102 @@
+# Taskport development workspace (virtual root — not published).
+#
+# Each distribution lives under packages/* and is independently buildable and
+# releasable. This root only wires the uv workspace and shared dev tooling.
+# See docs/adr/0010-monorepo-to-multirepo.md for the extraction procedure.
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+taskport-core = { workspace = true }
+taskport-jobs = { workspace = true }
+taskport-events = { workspace = true }
+taskport-scheduler = { workspace = true }
+taskport-django = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "pytest-asyncio>=0.24",
+    "pytest-django>=4.9",
+    "mypy>=1.13",
+    "ruff>=0.8",
+    "django>=6.0",
+    # Workspace members, installed editable for local development/testing.
+    "taskport-core",
+    "taskport-jobs",
+    "taskport-events",
+    "taskport-scheduler",
+    "taskport-django",
+]
+
+# --------------------------------------------------------------------------- #
+# Shared tooling configuration. Each package re-uses these conventions; when a
+# package is extracted to its own repo it can copy the relevant blocks.
+# --------------------------------------------------------------------------- #
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["packages/*/src", "packages/*/tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["B011"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+show_error_codes = true
+mypy_path = [
+    "packages/taskport-core/src",
+    "packages/taskport-jobs/src",
+    "packages/taskport-events/src",
+    "packages/taskport-scheduler/src",
+    "packages/taskport-django/src",
+]
+explicit_package_bases = true
+namespace_packages = true
+
+[[tool.mypy.overrides]]
+module = [
+    "google.*",
+    "boto3.*",
+    "botocore.*",
+    "azure.*",
+    "kubernetes.*",
+    "opentelemetry.*",
+    "django.*",
+]
+ignore_missing_imports = true
+
+# Django ships no py.typed, so its symbols are Any. Relax the two strict checks
+# that this forces on the Django-facing package only.
+[[tool.mypy.overrides]]
+module = ["taskport.django.*"]
+disallow_subclassing_any = false
+disallow_untyped_decorators = false
+
+[tool.pytest.ini_options]
+testpaths = ["packages"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+# importlib import mode lets same-named test files (e.g. test_import_light.py)
+# coexist across packages without __init__.py collisions.
+addopts = "-ra --import-mode=importlib"
+DJANGO_SETTINGS_MODULE = "tests_settings"
+pythonpath = ["packages/taskport-django/tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["taskport"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
