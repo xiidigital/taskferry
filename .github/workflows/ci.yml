@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   quality:
-    name: lint · types · tests
+    name: lint · types · tests (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -33,22 +33,102 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
-      - name: Mypy (strict, all packages)
+      - name: Mypy (strict, every shipped package)
         run: >
           uv run mypy
-          packages/taskport-core/src
+          packages/taskport/src
+          packages/taskport-procrastinate/src
+          packages/taskport-cloudtasks/src
+          packages/taskport-cloudrun/src
           packages/taskport-jobs/src
           packages/taskport-events/src
           packages/taskport-scheduler/src
           packages/taskport-django/src
 
       - name: Pytest (+ coverage)
-        run: uv run pytest --cov=taskport --cov-report=term-missing
+        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.python-version == '3.12'
+        with:
+          name: coverage
+          path: coverage.xml
+
+  # The job that keeps the central promise honest. `pip install taskport` must
+  # install nothing else, and the core must be usable and testable in a process
+  # that has never seen Django, Procrastinate or a cloud SDK. Running this in a
+  # genuinely bare environment is the only way to know — the workspace venv has
+  # every adapter installed, so it could never catch a leak.
+  isolation:
+    name: taskport alone (no Django, no adapters)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install ONLY taskport and pytest
+        run: |
+          uv venv .venv-isolated
+          VIRTUAL_ENV=.venv-isolated uv pip install ./packages/taskport pytest pytest-asyncio
+
+      - name: Nothing else came along for the ride
+        run: |
+          VIRTUAL_ENV=.venv-isolated uv pip list --format=freeze > installed.txt
+          cat installed.txt
+          ! grep -iE '^(django|procrastinate|celery|redis|psycopg|sqlalchemy|boto3|google-|azure-|kubernetes)' installed.txt
+
+      - name: The acceptance criterion, in a bare interpreter
+        run: |
+          .venv-isolated/bin/python - <<'PY'
+          import sys
+          import taskport
+
+          runtime = taskport.Taskport.local()
+
+          def add(a: int, b: int) -> int:
+              return a + b
+
+          execution = runtime.inline.submit(add, 20, 22)
+          assert execution.result().value == 42, execution
+
+          for forbidden in ("django", "procrastinate", "celery", "redis", "psycopg",
+                            "sqlalchemy", "boto3", "google", "azure", "kubernetes"):
+              assert forbidden not in sys.modules, f"taskport imported {forbidden}"
+
+          print("taskport works alone:", taskport.__version__)
+          PY
+
+      - name: The CLI works with nothing configured
+        run: .venv-isolated/bin/taskport doctor
+
+      - name: The core test suite passes with no adapters installed
+        run: .venv-isolated/bin/python -m pytest packages/taskport -q -p no:cacheprovider
+
+  django-matrix:
+    name: Django ${{ matrix.django-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        django-version: ["6.0"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync workspace
+        run: uv sync --all-packages
+      - name: Pin Django ${{ matrix.django-version }}
+        run: uv pip install "django~=${{ matrix.django-version }}.0"
+      - name: Test the Django adapter
+        run: uv run pytest packages/taskport-django -q
 
   build:
     name: build distributions
     runs-on: ubuntu-latest
-    needs: quality
+    needs: [quality, isolation]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -60,3 +140,19 @@ jobs:
         with:
           name: dist
           path: dist/*
+
+  docs:
+    name: build docs
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Build the documentation site
+        run: uv run mkdocs build --strict
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: site/*

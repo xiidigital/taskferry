@@ -1,39 +1,52 @@
-"""Minimal Django settings for the taskport-django test suite."""
+"""Minimal Django settings for the taskport-django test suite.
+
+Deliberately small: the point of these tests is the bridge, not Django. There is
+no database engine in use beyond the in-memory SQLite that ``transaction.atomic``
+needs, no middleware, and no app beyond ``taskport_django`` itself.
+"""
 
 from __future__ import annotations
 
-SECRET_KEY = "taskport-test-secret-not-for-production"
+SECRET_KEY = "taskport-tests-not-a-real-secret"
+DEBUG = True
 USE_TZ = True
 
-INSTALLED_APPS: list[str] = []
+INSTALLED_APPS = [
+    "django.contrib.contenttypes",
+    "django.contrib.auth",
+    "taskport_django",
+]
 
 DATABASES = {
-    "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"},
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
 }
 
-# Provider backends are configured with injected fake clients so the suite needs
-# no cloud account. Aliases must exist so deferred tasks (validated against their
-# backend at construction) can target a defer-capable backend.
-import fakes  # noqa: E402 - test-only module on pythonpath
-
+# The whole Django surface Taskport touches: one standard TASKS alias pointed at
+# the bridge, and one TASKPORT dict describing where work actually goes.
 TASKS = {
-    "default": {"BACKEND": "taskport.django.backends.local.LocalBackend"},
-    "cloudtasks": {
-        "BACKEND": "taskport.django.backends.cloud_tasks.CloudTasksBackend",
-        "OPTIONS": {
-            "project": "p",
-            "location": "us-central1",
-            "queue": "default",
-            "url": "https://svc.run.app/_taskport/execute",
-            "client": fakes.CLOUD_TASKS_CLIENT,
-        },
+    "default": {"BACKEND": "taskport_django.TaskportBackend"},
+    "pinned": {
+        "BACKEND": "taskport_django.TaskportBackend",
+        "OPTIONS": {"backend": "thread"},
     },
-    "sqs": {
-        "BACKEND": "taskport.django.backends.sqs.SQSBackend",
-        "OPTIONS": {
-            "queue_url": "https://sqs.us-east-1.amazonaws.com/1/q",
-            "client": fakes.SQS_CLIENT,
-        },
+}
+
+TASKPORT = {
+    "backends": {
+        "inline": {"factory": "inline"},
+        "thread": {"factory": "thread"},
+        "subprocess": {"factory": "subprocess"},
+    },
+    "routes": [
+        {"kind": "task", "queue": "immediate", "backend": "thread"},
+    ],
+    "defaults": {
+        "inline": "inline",
+        "task": "thread",
+        "job": "subprocess",
     },
 }
 

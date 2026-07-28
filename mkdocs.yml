@@ -1,0 +1,80 @@
+site_name: Taskport
+site_description: A portable execution layer for Python — inline, tasks and jobs on the engines you already run.
+site_url: https://taskport.dev
+repo_url: https://github.com/taskport/taskport
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.integrate
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: README.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - The 2026 refactor: architecture/refactor-2026.md
+      - Security: security.md
+  - Migration:
+      - 0.1 to 0.2: migration/0.1-to-0.2.md
+  - Decisions (ADRs):
+      - Current design:
+          - 0011 · Portable execution layer: adr/0011-portable-execution-layer.md
+          - 0012 · Not a task queue: adr/0012-not-a-task-queue.md
+          - 0013 · Task vs Job: adr/0013-task-vs-job.md
+          - 0014 · Backend capabilities: adr/0014-backend-capabilities.md
+          - 0015 · Framework adapters: adr/0015-framework-adapters.md
+          - 0016 · Configuration architecture: adr/0016-configuration-architecture.md
+          - 0017 · Serialization: adr/0017-serialization.md
+          - 0018 · No exactly-once: adr/0018-no-exactly-once.md
+          - 0019 · Retry ownership: adr/0019-retry-ownership.md
+          - 0020 · Packaging strategy: adr/0020-packaging-strategy.md
+      - Still in force:
+          - 0004 · Core scope: adr/0004-taskport-core-scope.md
+          - 0005 · Capability model: adr/0005-capability-model.md
+          - 0006 · Environment config: adr/0006-environment-configuration.md
+          - 0007 · Provider credentials: adr/0007-provider-credentials.md
+          - 0008 · Delivery semantics: adr/0008-delivery-semantics.md
+          - 0009 · Observability: adr/0009-observability.md
+          - 0010 · Monorepo to multi-repo: adr/0010-monorepo-to-multirepo.md
+      - Superseded:
+          - 0001 · Taskport as a family: adr/0001-taskport-family.md
+          - 0002 · Separate concepts: adr/0002-separate-task-job-event-schedule.md
+          - 0003 · Namespace packages: adr/0003-namespace-packages.md
+  - Adjacent concerns:
+      - Task vs Job vs Event vs Schedule: family/concepts.md
+      - Composition: family/composition.md
+      - Multicloud matrix: family/multicloud-matrix.md
+      - Deployment profiles: family/deployment-profiles.md
+      - Roadmap & status: family/roadmap.md
+      - Extraction to multi-repo: family/extraction.md

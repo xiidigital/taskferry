@@ -1,14 +1,29 @@
 # Taskport development workspace (virtual root — not published).
 #
-# Each distribution lives under packages/* and is independently buildable and
-# releasable. This root only wires the uv workspace and shared dev tooling.
-# See docs/adr/0010-monorepo-to-multirepo.md for the extraction procedure.
+# Every distribution lives under packages/* and is independently buildable and
+# releasable. This root only wires the uv workspace and the shared dev tooling.
+#
+# The dependency direction the layout enforces:
+#
+#   taskport                    <- no dependencies at all, ever
+#     ^-- taskport-procrastinate
+#     ^-- taskport-cloudtasks
+#     ^-- taskport-cloudrun
+#     ^-- taskport-jobs
+#     ^-- taskport-django
+#     ^-- taskport-events
+#     ^-- taskport-scheduler
+#
+# See docs/architecture/refactor-2026.md and docs/adr/0020-packaging-strategy.md.
 
 [tool.uv.workspace]
 members = ["packages/*"]
 
 [tool.uv.sources]
-taskport-core = { workspace = true }
+taskport = { workspace = true }
+taskport-procrastinate = { workspace = true }
+taskport-cloudtasks = { workspace = true }
+taskport-cloudrun = { workspace = true }
 taskport-jobs = { workspace = true }
 taskport-events = { workspace = true }
 taskport-scheduler = { workspace = true }
@@ -23,8 +38,16 @@ dev = [
     "mypy>=1.13",
     "ruff>=0.8",
     "django>=6.0",
+    # For testing the OpenTelemetry bridge (in-memory span exporter).
+    "opentelemetry-api>=1.27",
+    "opentelemetry-sdk>=1.27",
+    # For building the documentation site.
+    "mkdocs-material>=9.5",
     # Workspace members, installed editable for local development/testing.
-    "taskport-core",
+    "taskport",
+    "taskport-procrastinate",
+    "taskport-cloudtasks",
+    "taskport-cloudrun",
     "taskport-jobs",
     "taskport-events",
     "taskport-scheduler",
@@ -33,7 +56,7 @@ dev = [
 
 # --------------------------------------------------------------------------- #
 # Shared tooling configuration. Each package re-uses these conventions; when a
-# package is extracted to its own repo it can copy the relevant blocks.
+# package is extracted to its own repo it copies the relevant blocks.
 # --------------------------------------------------------------------------- #
 
 [tool.ruff]
@@ -55,7 +78,10 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 show_error_codes = true
 mypy_path = [
-    "packages/taskport-core/src",
+    "packages/taskport/src",
+    "packages/taskport-procrastinate/src",
+    "packages/taskport-cloudtasks/src",
+    "packages/taskport-cloudrun/src",
     "packages/taskport-jobs/src",
     "packages/taskport-events/src",
     "packages/taskport-scheduler/src",
@@ -63,6 +89,19 @@ mypy_path = [
 ]
 explicit_package_bases = true
 namespace_packages = true
+
+# Type checking covers the shipped code — packages/*/src — at full strictness,
+# because that is the contract a user's own type-checker sees after installing a
+# distribution. Tests are excluded deliberately:
+#
+#   * test doubles stand in for SDK objects whose real types are not installed
+#     here (boto3, the Azure SDK, the Kubernetes client), so strict generics on a
+#     five-line fake produce noise rather than safety;
+#   * pytest fixtures and Django's decorators are untyped, and annotating around
+#     them would mean a suppression on every use that says nothing;
+#   * the suite already establishes that the code runs, which is what tests are
+#     for. Ruff still lints them.
+exclude = ['packages/[^/]+/tests/']
 
 [[tool.mypy.overrides]]
 module = [
@@ -73,15 +112,18 @@ module = [
     "kubernetes.*",
     "opentelemetry.*",
     "django.*",
+    "confluent_kafka.*",
+    "procrastinate.*",
 ]
 ignore_missing_imports = true
 
 # Django ships no py.typed, so its symbols are Any. Relax the two strict checks
-# that this forces on the Django-facing package only.
+# that this forces, on the Django-facing package only.
 [[tool.mypy.overrides]]
-module = ["taskport.django.*"]
+module = ["taskport_django.*"]
 disallow_subclassing_any = false
 disallow_untyped_decorators = false
+
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]
@@ -91,11 +133,23 @@ asyncio_mode = "auto"
 # coexist across packages without __init__.py collisions.
 addopts = "-ra --import-mode=importlib"
 DJANGO_SETTINGS_MODULE = "tests_settings"
-pythonpath = ["packages/taskport-django/tests"]
+pythonpath = [
+    "packages/taskport-django/tests",
+    "packages/taskport/tests",
+]
 
 [tool.coverage.run]
 branch = true
-source = ["taskport"]
+source = [
+    "taskport",
+    "taskport_procrastinate",
+    "taskport_cloudtasks",
+    "taskport_cloudrun",
+    "taskport_jobs",
+    "taskport_events",
+    "taskport_scheduler",
+    "taskport_django",
+]
 
 [tool.coverage.report]
 show_missing = true

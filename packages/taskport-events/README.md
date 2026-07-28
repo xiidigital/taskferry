@@ -1,7 +1,7 @@
 # taskport-events
 
-Portable **pub/sub and fan-out** event delivery. Part of the
-[Taskport](https://taskport.dev) family. Plain Python, no Django required.
+Portable **pub/sub and fan-out** event delivery. Ships alongside [Taskport](https://github.com/taskport/taskport),
+the portable execution layer. Plain Python, no Django required.
 
 An **Event** declares that *something happened* and may have **zero or more**
 consumers — the opposite of a Task, which is one operation to run. Modeled on
@@ -15,7 +15,7 @@ pip install taskport-events[gcp]       # + Google Cloud Pub/Sub
 ## Usage
 
 ```python
-from taskport.events import Event, publishers
+from taskport_events import Event, publishers
 
 publishers["default"].publish(
     Event(type="file.uploaded", source="urn:svc:uploads", data={"file_id": "42"})
@@ -25,7 +25,7 @@ publishers["default"].publish(
 Fan-out with the in-process bus:
 
 ```python
-from taskport.events import InMemoryEventBus, Event
+from taskport_events import InMemoryEventBus, Event
 
 bus = InMemoryEventBus()
 bus.subscribe(lambda e: print("billing", e.data), event_type="order.placed")
@@ -36,12 +36,12 @@ bus.publish(Event(type="order.placed", source="urn:shop", data={"total": 10}))
 Configure a provider publisher (lazy — no SDK imported until first use):
 
 ```python
-from taskport.events import publishers
+from taskport_events import publishers
 
 publishers.configure(
     {
         "default": {
-            "factory": "taskport.events.adapters.gcp:make_pubsub_publisher",
+            "factory": "taskport_events.adapters.gcp:make_pubsub_publisher",
             "project": "my-proj",
             "topic": "domain-events",
             "ordering": True,
@@ -65,10 +65,14 @@ backend that lacks it raises `UnsupportedCapabilityError`.
 
 | Adapter            | Provider  | Capabilities                                        |
 | ------------------ | --------- | --------------------------------------------------- |
-| `InMemoryEventBus` | inmemory  | fanout, filtering, replay, retention                |
-| `PubSubPublisher`  | gcp       | fanout, delivery_retry, dead_letter, filtering, retention (+ ordering) |
+| `InMemoryEventBus`      | inmemory  | fanout, filtering, replay, retention           |
+| `PubSubPublisher`       | gcp       | fanout, delivery_retry, dead_letter, filtering, retention (+ ordering) |
+| `SnsPublisher`          | aws       | fanout, delivery_retry, dead_letter, filtering (+ ordering on FIFO) |
+| `EventBridgePublisher`  | aws       | fanout, delivery_retry, dead_letter, filtering, retention, replay |
+| `EventGridPublisher`    | azure     | fanout, delivery_retry, dead_letter, filtering, retention |
+| `KafkaPublisher`        | kafka     | fanout, ordering, delivery_retry, retention, replay |
 
-Roadmap: EventBridge/SNS (AWS), Event Grid (Azure), Kafka, NATS, RabbitMQ.
+Roadmap: NATS, RabbitMQ.
 
 ## Delivery semantics
 

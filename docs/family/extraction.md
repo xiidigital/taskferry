@@ -37,7 +37,7 @@ git tag taskport-jobs-v0.1.0 && git push --tags
 ## What to verify after extraction
 
 - `uv build` produces a valid wheel + sdist.
-- `pip install dist/*.whl` in a clean venv, then `import taskport.jobs` works.
+- `pip install dist/*.whl` in a clean venv, then `import taskport_jobs` works.
 - `pytest` passes against the installed package.
 - No `taskport/__init__.py` was introduced (would break the namespace, ADR-0003).
 

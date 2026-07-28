@@ -1,76 +1,105 @@
-# Taskport architecture overview
+# Architecture overview
 
-Taskport is a **ports & adapters** (hexagonal) layer. Applications depend on
-small, stable Taskport contracts; provider adapters implement those contracts on
-top of real infrastructure. Dependencies always point **inward**, toward the
-contracts — never toward a provider SDK.
+> The detailed treatment — including what the 0.1 architecture got wrong and how
+> the migration was carried out — is in
+> [the 2026 refactor document](refactor-2026.md). This page is the summary.
 
-```text
-        Application code
-              │
-              ▼
-      Taskport contracts        (taskport.core + domain protocols)
-              │
-              ▼
-      Provider adapters         (local, gcp, aws, azure, kubernetes)
-              │
-              ▼
-        Infrastructure          (Cloud Tasks, SQS, Pub/Sub, Batch, K8s ...)
+Taskport is a portable execution layer. Applications depend on small, stable
+contracts; adapters implement those contracts on real engines. Dependencies always
+point **inward**.
+
+```mermaid
+flowchart BT
+    PROVIDERS["Provider adapters<br/>procrastinate · cloudtasks · cloudrun · jobs"]
+    FRAMEWORKS["Framework adapters<br/>django"]
+    PORTS["Ports<br/>TaskBackend · JobBackend · InlineBackend"]
+    CORE["taskport<br/>specs · execution · router · runtime"]
+
+    PROVIDERS --> PORTS
+    FRAMEWORKS --> PORTS
+    PORTS --> CORE
 ```
 
-Correct direction:
+Never the reverse:
 
-```text
-AWS adapter → core        GCP adapter → core        Azure adapter → core
+```mermaid
+flowchart TD
+    CORE["taskport"]
+    CORE -.->|"forbidden"| DJANGO["Django"]
+    CORE -.->|"forbidden"| CLOUDRUN["Cloud Run"]
+    CORE -.->|"forbidden"| PROCRASTINATE["Procrastinate"]
 ```
 
-Never:
+## The full picture
 
-```text
-core → boto3        core → google.cloud        core → azure
+```mermaid
+flowchart TB
+    subgraph Consumers
+        PY["Python"]
+        CLI["CLI"]
+        DJ["Django"]
+        FA["FastAPI"]
+    end
+
+    subgraph Taskport
+        RUNTIME["Runtime"]
+        ROUTER["Router"]
+        INLINE["Inline Port"]
+        TASK["Task Port"]
+        JOB["Job Port"]
+    end
+
+    subgraph Adapters
+        LOCALA["built-in local"]
+        PROA["Procrastinate"]
+        CTA["Cloud Tasks"]
+        CRA["Cloud Run"]
+        K8SA["Kubernetes · AWS Batch · Azure"]
+    end
+
+    subgraph Engines
+        LOCAL["in-process · subprocess"]
+        PRO["PostgreSQL"]
+        CT["Cloud Tasks"]
+        CR["Cloud Run Jobs"]
+        K8S["Kubernetes · Batch · Container Apps"]
+    end
+
+    PY --> RUNTIME
+    CLI --> RUNTIME
+    DJ --> RUNTIME
+    FA --> RUNTIME
+
+    RUNTIME --> ROUTER
+    ROUTER --> INLINE
+    ROUTER --> TASK
+    ROUTER --> JOB
+
+    INLINE --> LOCALA --> LOCAL
+    TASK --> PROA --> PRO
+    TASK --> CTA --> CT
+    JOB --> CRA --> CR
+    JOB --> K8SA --> K8S
 ```
 
-## Package dependency graph
+## The guarantees, and how they are enforced
 
-```text
-taskport-django ─┐
-taskport-jobs ───┤
-taskport-events ─┼──▶ taskport-core        (core depends on nothing)
-taskport-scheduler┘
-```
+| Guarantee | Enforced by |
+| --- | --- |
+| `taskport` imports no framework or provider SDK | AST scan of every source file |
+| nothing heavy lands in `sys.modules` | subprocess import probe |
+| `pip install taskport` installs nothing else | metadata check + a CI job in a bare venv |
+| adapters do not depend on each other | AST scan across distributions |
+| no adapter contributes to the `taskport` package | layout check |
+| the core does not grow engine features | vocabulary scan |
 
-The four domain packages **do not depend on each other** (section 56). An
-application composes them; Taskport does not couple them. `taskport-jobs`,
-`taskport-events` and `taskport-scheduler` do not require Django. Only
-`taskport-django` requires Django (section 57).
+All six live in
+[`packages/taskport/tests/test_architecture.py`](https://github.com/taskport/taskport/blob/main/packages/taskport/tests/test_architecture.py)
+and run on every commit.
 
-## The four domains
+## Import weight
 
-```text
-                       Taskport
-                          │
-        ┌─────────────────┼──────────────────┐
-       Work             Events              Timing
-        │                 │                   │
-    ┌───┴───┐             │                   │
-  Tasks    Jobs         Events            Scheduler
-```
-
-## Cross-cutting concerns (all in `taskport-core`)
-
-```text
-configuration · capabilities · identity · correlation
-observability · errors · provider metadata · delivery semantics
-```
-
-Each is intentionally minimal and dependency-free. See
-[ADR-0004](../adr/0004-taskport-core-scope.md).
-
-## Import weight guarantee
-
-`import taskport.jobs` must not import `boto3`, `google.cloud`, `azure`, or
-`kubernetes`. Provider SDKs are imported **lazily**, inside the adapter that
-needs them, at construction time — enforced by the `LazyRegistry` pattern and by
-per-adapter local imports (section 31). Adapters live in their own submodules
-(`taskport.jobs.runners.aws`, etc.) so importing the domain package never touches
-a provider SDK.
+Provider SDKs are imported **lazily**, inside the method that needs a client, and
+adapters are discovered through entry points rather than imported eagerly. A web
+process that only enqueues tasks never imports the Google SDK, even with
+`taskport-cloudrun` installed.

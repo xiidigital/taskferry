@@ -1,25 +1,36 @@
-# Changelog — taskport-django
+# Changelog
 
-Follows [Semantic Versioning](https://semver.org/); versions independently of the
-rest of the family (ADR-0010).
+All notable changes to `taskport-django` are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
+this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0] — 2026-07-26
 
-## [0.1.0]
+### Changed
+
+- **BREAKING**: `taskport.django` is now `taskport_django`.
+- Reduced to a pure bridge. `TaskportBackend` is a `django.tasks` backend that
+  translates to `TaskSpec` and hands it to a Taskport runtime; the engine is a
+  configuration choice, not a Django class.
+- Feature flags and capabilities now come from the *routed* backend rather than
+  being hardcoded per class.
 
 ### Added
 
-- `TaskportTaskBackend` base + `TaskportCapabilityMixin` (honest capability set
-  derived from Django's backend feature flags plus provider extras).
-- `TaskCapability` capability vocabulary mapped onto Django 6's `supports_*`
-  flags.
-- Backends: `LocalBackend` (dev, over Django's `ImmediateBackend`),
-  `CloudTasksBackend` (GCP serverless push), `SQSBackend` (AWS).
-- Portable JSON task message format (`build_message`, `resolve_task`,
-  `TaskMessage`) — identifiers/argv only, no pickle or ORM instances.
-- Consumer side: `execute_task_message`, `task_webhook` view (Cloud Tasks push),
-  `process_sqs_message` / `process_sqs_event` (SQS pull).
-- Correlation propagation from enqueue through execution.
-- `TaskBackendContract` reusable, capability-driven contract test suite.
-- Uses the official `TASKS` setting (no `TASKPORT_TASKS` duplication).
-- `py.typed`.
+- `config_from_settings()` — the only place in the project that reads
+  `django.conf.settings`.
+- `submit_on_commit()` / `task_on_commit()`, built on `transaction.on_commit`.
+- System checks that build every configured backend at `manage.py check` time.
+- `manage.py taskport <subcommand>`, wrapping the same CLI.
+- `taskport_django.execute:run_task`, the single worker-side dispatcher.
+
+### Removed
+
+- **BREAKING**: the Django-coupled provider backends. Cloud Tasks and
+  Procrastinate moved to their own framework-agnostic distributions; SQS, Azure
+  Service Bus and Dramatiq were removed pending a proper port. See the
+  [migration guide](../../docs/migration/0.1-to-0.2.md).
+- `taskport.django.views.task_webhook` — replaced by
+  `taskport_cloudtasks.handle_request`, which takes bytes and works in any
+  framework.
+- `TaskCapability` — use `taskport.Capability`.
