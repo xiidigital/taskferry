@@ -1,22 +1,15 @@
-# Changelog — taskport-events
+# Changelog
 
-Follows [Semantic Versioning](https://semver.org/); versions independently of the
-rest of the family (ADR-0010).
+All notable changes to `taskport-events` are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
+this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0] — 2026-07-26
 
-## [0.1.0]
+### Changed
 
-### Added
+- **BREAKING**: `taskport.events` is now `taskport_events`.
 
-- `Event` model (CloudEvents-inspired: id, type, source, subject, time, data),
-  `PublishResult`, `event_attributes`.
-- `EventPublisher` port + `BaseEventPublisher` (tracing).
-- `EventCapability` capability vocabulary.
-- `InMemoryEventBus` — real in-process fan-out with type/predicate filtering,
-  replay and retention.
-- `PubSubPublisher` (GCP) reference adapter with lazy SDK import and injectable
-  client.
-- `publishers` lazy registry (in-memory bus registered as `"default"`).
-- `EventPublisherContract` reusable contract test suite.
-- Import-lightness guarantee and `py.typed`.
+Contracts, adapters and the registry are otherwise unchanged. Only the import
+path moved, so that `taskport` could ship a public API. See
+[ADR-0020](../../docs/adr/0020-packaging-strategy.md).

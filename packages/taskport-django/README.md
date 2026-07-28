@@ -1,97 +1,108 @@
 # taskport-django
 
-Portable backends for the **official Django 6 Tasks framework**. Part of the
-[Taskport](https://taskport.dev) family.
+Django integration for [Taskport](https://github.com/taskport/taskport).
 
-Taskport does **not** invent a parallel task API. You keep writing standard
-Django, and swap the backend via the official `TASKS` setting to move between
-local, serverless, and traditional infrastructure — without touching your
-`@task` code.
+```mermaid
+flowchart BT
+    DJ["Django"]
+    TPD["taskport-django"]
+    TP["taskport"]
+
+    DJ --> TPD --> TP
+```
+
+Taskport does **not** invent a parallel task API — Django 6 already has one. This
+package supplies a backend for the standard `TASKS` setting, so your `@task` code
+never changes while the engine behind it becomes a configuration choice.
 
 ```bash
-pip install taskport-django            # local backend
-pip install taskport-django[gcp]       # + Cloud Tasks (serverless push)
-pip install taskport-django[aws]       # + SQS
+pip install taskport-django taskport-procrastinate
 ```
 
 ## Your code never changes
 
 ```python
+# myapp/tasks.py
 from django.tasks import task
 
 
 @task
 def resize_image(image_id: int) -> None: ...
+```
 
-
+```python
+# anywhere
 resize_image.enqueue(42)
 ```
 
-## Configuration (official `TASKS` setting)
+## Settings
 
 ```python
-# settings.py — local development
-TASKS = {"default": {"BACKEND": "taskport.django.backends.local.LocalBackend"}}
-```
+TASKS = {"default": {"BACKEND": "taskport_django.TaskportBackend"}}
 
-```python
-# GCP serverless (Cloud Tasks → Cloud Run push)
-TASKS = {
-    "default": {
-        "BACKEND": "taskport.django.backends.cloud_tasks.CloudTasksBackend",
-        "OPTIONS": {
-            "project": "my-project",
-            "location": "us-central1",
-            "queue": "default",
-            "url": "https://my-service.run.app/_taskport/execute",
-            "service_account_email": "runner@my-project.iam.gserviceaccount.com",
-        },
-    }
+TASKPORT = {
+    "backends": {
+        "pg": {"factory": "procrastinate", "app": "myapp.tasks:app"},
+        "heavy": {"factory": "cloudrun", "project": "p", "location": "europe-west1"},
+    },
+    "routes": [
+        {"kind": "task", "queue": "metadata", "backend": "pg"},
+        {"kind": "job", "profile": "heavy", "backend": "heavy"},
+    ],
+    "defaults": {"task": "pg", "job": "heavy"},
 }
 ```
 
+With no `TASKPORT` setting at all, everything runs locally — a fresh project works
+immediately and is obviously not production.
+
+## What else you get
+
+**Enqueue after commit.** The classic race — a worker reaching a row before the
+transaction that created it commits — with the classic fix:
+
 ```python
-# AWS (SQS → Lambda/ECS consumer)
-TASKS = {
-    "default": {
-        "BACKEND": "taskport.django.backends.sqs.SQSBackend",
-        "OPTIONS": {"queue_url": "https://sqs.us-east-1.amazonaws.com/123/my-queue"},
-    }
-}
+from django.db import transaction
+from taskport_django import task_on_commit
+
+
+def create_order(request):
+    with transaction.atomic():
+        order = Order.objects.create(...)
+        task_on_commit("myapp.tasks:process_order", order.id)
 ```
 
-## Receive side
+**System checks.** `manage.py check` builds every configured backend, because
+"the adapter is installed" and "the adapter works with these options" are
+different questions:
 
-- **Cloud Tasks (push):** mount the webhook and secure it with platform IAM.
-  ```python
-  from taskport.django.views import task_webhook
+```text
+taskport.E002  the Taskport backend 'heavy' cannot be built: CloudRunJobBackend
+               needs both 'project' and 'location'
+taskport.W003  DEBUG is False but these Taskport backends run in this process and
+               lose pending work on restart: fast
+```
 
-  urlpatterns = [path("_taskport/execute", task_webhook)]
-  ```
-- **SQS (pull):** run a consumer (Lambda/ECS):
-  ```python
-  from taskport.django.consumers import process_sqs_event
+**The CLI, with settings loaded.**
 
+```bash
+python manage.py taskport doctor
+python manage.py taskport capabilities pg
+```
 
-  def handler(event, context):
-      process_sqs_event(event)
-  ```
+**Jobs and inline execution**, through the same runtime:
 
-## Backends & capabilities
+```python
+from taskport_django import get_runtime
 
-| Backend             | Provider | Profile             | Notable capabilities                       |
-| ------------------- | -------- | ------------------- | ------------------------------------------ |
-| `LocalBackend`      | local    | dev (runs inline)   | priority, async, queue selection           |
-| `CloudTasksBackend` | gcp      | serverless push     | delay, scheduled execution, retries        |
-| `SQSBackend`        | aws      | pull (Lambda/ECS)   | delay (≤900s), dead-letter, FIFO ordering  |
+get_runtime().jobs.submit("build-cog", image="gdal:latest", profile="heavy")
+```
 
-Backends advertise `taskport_capabilities`; unsupported requests raise
-`UnsupportedCapabilityError`, and e.g. SQS rejects a `run_after` beyond its
-900-second limit rather than silently clamping it.
+## The dependency direction
 
-## Delivery semantics
-
-At-least-once with possible duplicates (ADR-0008). Make your tasks idempotent.
+`taskport` never imports Django. The test suite for the core runs — and CI runs
+it — in an environment where Django is not installed. The same `TASKPORT` dict
+works verbatim in a FastAPI service, a CLI or a library.
 
 ## License
 

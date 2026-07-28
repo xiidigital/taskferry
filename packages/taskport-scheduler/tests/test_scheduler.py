@@ -1,4 +1,4 @@
-"""Tests for taskport.scheduler: triggers, LocalScheduler, Cloud Scheduler, contract."""
+"""Tests for taskport_scheduler: triggers, LocalScheduler, Cloud Scheduler, contract."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from taskport.core import UnsupportedCapabilityError
-from taskport.scheduler import (
+from taskport_scheduler import (
     CallableTarget,
     CronTrigger,
     HttpTarget,
@@ -20,8 +20,8 @@ from taskport.scheduler import (
     ScheduleStatus,
     schedulers,
 )
-from taskport.scheduler.adapters.gcp import CloudSchedulerScheduler, map_scheduler_state
-from taskport.scheduler.contract import SchedulerContract
+from taskport_scheduler.adapters.gcp import CloudSchedulerScheduler, map_scheduler_state
+from taskport_scheduler.contract import SchedulerContract
 
 
 # --------------------------------------------------------------------------- #

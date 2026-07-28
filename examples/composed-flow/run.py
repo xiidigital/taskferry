@@ -1,65 +1,62 @@
-"""Composed flow: HTTP request → Task → Event → Job, one correlation id.
+"""Task -> Job composition, with correlation carried across the boundary.
 
     uv run python examples/composed-flow/run.py
 
-Demonstrates composition by capability (not a workflow engine) and correlation
-propagation across all four boundaries. Everything runs in-process here; in
-production each hop would cross a real backend, carrying the same correlation.
+Shows the frontier from the design: the application knows *what* the pipeline
+means; Taskport only knows how and where each step executes.
 """
 
 from __future__ import annotations
 
-import os
 import sys
+from pathlib import Path
 
-import django
-from django.conf import settings
+sys.path.insert(0, str(Path(__file__).parent))
 
-sys.path.insert(0, os.path.dirname(__file__))
+import pipeline
 
-settings.configure(
-    SECRET_KEY="example-only",
-    USE_TZ=True,
-    INSTALLED_APPS=[],
-    DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
-    TASKS={"default": {"BACKEND": "taskport.django.backends.local.LocalBackend"}},
-)
-django.setup()
+from taskport import Correlation, Taskport, use_correlation
+from taskport.core.correlation import current_correlation
 
-import composed_app  # noqa: E402 - must follow django.setup()
-
-from taskport.core import Correlation, use_correlation  # noqa: E402
-from taskport.events import Event  # noqa: E402
-from taskport.jobs import JobSpec, runners  # noqa: E402
-
-
-def on_uploaded(event: Event) -> None:
-    correlation = event.correlation
-    assert correlation is not None
-    print(f"  [event] file.uploaded corr={correlation.correlation_id} -> submit job")
-    # Event → Job: a consumer submits a finite workload.
-    handle = runners["default"].run(
-        JobSpec(
-            name="process-upload",
-            command=[sys.executable, "-c", "print('    [job]   processing upload')"],
-            correlation=correlation,
-        )
-    )
-    result = runners["default"].wait(handle, timeout=10)  # type: ignore[attr-defined]
-    job_corr = handle.correlation.correlation_id if handle.correlation else "?"
-    print(f"  [job]   {handle.id} status={result.status} corr={job_corr}")
+CONFIG = {
+    "backends": {
+        "fast": {"factory": "thread", "max_workers": 2},
+        "heavy": {"factory": "subprocess"},
+    },
+    "routes": [
+        {"kind": "task", "queue": "metadata", "backend": "fast"},
+        {"kind": "job", "profile": "heavy", "backend": "heavy"},
+    ],
+    "defaults": {"task": "fast", "job": "heavy"},
+}
 
 
 def main() -> None:
-    composed_app.BUS.subscribe(on_uploaded, event_type="file.uploaded")
+    runtime = Taskport.from_mapping(CONFIG)
+    pipeline.RUNTIME = runtime
 
-    # "HTTP request" begins a logical flow.
-    correlation = Correlation.start()
-    print(f"[request] upload received, corr={correlation.correlation_id}")
-    with use_correlation(correlation):
-        composed_app.handle_upload.enqueue("f-123")  # Task (runs inline locally)
+    # One correlation id ties the whole flow together — the HTTP request that
+    # started it, the task, and the job the task launched.
+    flow = Correlation.start()
+    print(f"flow correlation: {flow.correlation_id}\n")
 
-    print(f"\nAll four steps shared correlation_id={correlation.correlation_id}")
+    with use_correlation(flow):
+        assert current_correlation() is flow
+        task = runtime.tasks.submit(pipeline.extract_metadata, 42, queue="metadata")
+
+    final = task.wait(20)
+    print(f"task  {final.state.value:>10}  {task.result().value}")
+    print(f"      correlation: {final.correlation.correlation_id if final.correlation else '-'}")
+    print(f"\nthe task launched: {pipeline.BUILT}")
+
+    print("\nwhat Taskport did NOT do:")
+    print("  - decide that a COG follows metadata extraction (your domain)")
+    print("  - persist a pipeline state machine (your database)")
+    print("  - retry the pipeline as a unit (a workflow engine's job)")
+    print("\nwhat it did do: route two different kinds of work to two engines,")
+    print("and carry one correlation id across the boundary between them.")
+
+    runtime.close()
 
 
 if __name__ == "__main__":

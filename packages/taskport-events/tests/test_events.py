@@ -1,4 +1,4 @@
-"""Tests for taskport.events: model, in-memory bus, Pub/Sub adapter, contract."""
+"""Tests for taskport_events: model, in-memory bus, Pub/Sub adapter, contract."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ import json
 import pytest
 
 from taskport.core import Correlation, SerializationError
-from taskport.events import (
+from taskport_events import (
     Event,
     EventCapability,
     InMemoryEventBus,
     publishers,
 )
-from taskport.events.adapters.gcp import PubSubPublisher
-from taskport.events.contract import EventPublisherContract
+from taskport_events.adapters.gcp import PubSubPublisher
+from taskport_events.contract import EventPublisherContract
 
 
 # --------------------------------------------------------------------------- #

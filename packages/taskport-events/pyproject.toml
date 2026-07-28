@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "taskport-events"
-version = "0.1.0"
-description = "Portable pub/sub and fan-out event delivery (CloudEvents-inspired) across in-memory, GCP Pub/Sub and more."
+version = "0.2.0"
+description = "Portable pub/sub and fan-out event delivery, alongside Taskport."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
@@ -19,14 +19,13 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Typing :: Typed",
 ]
-dependencies = ["taskport-core>=0.1,<0.2"]
+dependencies = ["taskport>=0.2,<0.3"]
 
 [project.optional-dependencies]
-gcp = ["google-cloud-pubsub>=2.23"]
+gcp = ["google-cloud-pubsub>=2.21"]
 aws = ["boto3>=1.34"]
-azure = ["azure-eventgrid>=4.20", "azure-identity>=1.17"]
-kafka = ["confluent-kafka>=2.5"]
-otel = ["taskport-core[otel]"]
+azure = ["azure-identity>=1.17", "azure-eventgrid>=4.20"]
+kafka = ["confluent-kafka>=2.4"]
 
 [project.urls]
 Homepage = "https://github.com/taskport/taskport-events"
@@ -34,7 +33,7 @@ Documentation = "https://taskport.dev/events"
 Source = "https://github.com/taskport/taskport-events"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/taskport"]
+packages = ["src/taskport_events"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src", "README.md", "CHANGELOG.md", "LICENSE"]

@@ -1,0 +1,267 @@
+"""The Cloud Tasks `TaskBackend`.
+
+Capabilities, and the two that are missing
+------------------------------------------
+
+Advertised: ``SUBMIT``, ``DELAY`` (``schedule_time``), ``RETRY`` (the queue's own
+retry configuration), ``DEDUPLICATION`` (a task *name* is unique per queue, which
+is real deduplication with a documented window).
+
+Not advertised: ``STATE`` and ``RESULT``. Cloud Tasks is fire-and-forget — once a
+task is created there is no per-task status to read and no place a return value
+is kept. A handle from this backend therefore raises
+:class:`~taskport.errors.UnsupportedCapability` on ``status()`` rather than
+returning a plausible-looking ``UNKNOWN`` forever, and an application that needs
+to know whether the work happened records that itself, in its own database, where
+it is actually true.
+
+That asymmetry with Procrastinate is not a defect in the abstraction; it is the
+abstraction working. Both engines run the same task code, and the difference in
+what you can *ask* afterwards is visible, checkable and impossible to trip over
+by accident.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from typing import Any, TypedDict
+
+from taskport.capabilities import Capability, CapabilitySet
+from taskport.core.correlation import Correlation
+from taskport.core.provider import ProviderMetadata
+from taskport.core.typing import JSONValue
+from taskport.errors import ConfigurationError, SubmissionError
+from taskport.execution import (
+    Execution,
+    ExecutionKind,
+    ExecutionState,
+    new_execution_id,
+)
+from taskport.ports import BaseBackend
+from taskport.specs import ExecutionSpec, TaskSpec
+
+MESSAGE_VERSION = "2"
+
+CLOUD_TASKS_CAPABILITIES = frozenset(
+    {
+        Capability.SUBMIT,
+        Capability.DELAY,
+        Capability.RETRY,
+        Capability.DEDUPLICATION,
+    }
+)
+
+
+class CloudTasksMessage(TypedDict, total=False):
+    """The JSON body Cloud Tasks POSTs to your service."""
+
+    taskport: str
+    task: str
+    args: list[JSONValue]
+    kwargs: dict[str, JSONValue]
+    name: str
+    queue: str
+    correlation: dict[str, str] | None
+
+
+def build_message(spec: TaskSpec) -> CloudTasksMessage:
+    """Serialize a spec into the HTTP body the receiver will decode."""
+    return {
+        "taskport": MESSAGE_VERSION,
+        "task": spec.task,
+        "args": list(spec.args),
+        "kwargs": dict(spec.kwargs),
+        "name": spec.name,
+        "queue": spec.queue,
+        "correlation": spec.correlation.to_headers() if spec.correlation else None,
+    }
+
+
+class CloudTasksBackend(BaseBackend):
+    """Creates HTTP-target tasks on a Cloud Tasks queue.
+
+    Args:
+        project: GCP project id.
+        location: Queue region.
+        queue: Default queue name. ``TaskSpec.queue`` overrides it, which is what
+            makes ``queue="email"`` mean a real Cloud Tasks queue.
+        url: The endpoint Cloud Tasks will POST to. Your service routes it to
+            :func:`taskport_cloudtasks.handle_request`.
+        service_account_email: Identity for the OIDC token, so the endpoint can
+            require authentication instead of being open to the internet.
+        audience: OIDC audience, when it differs from ``url``.
+        client: Injected ``tasks_v2.CloudTasksClient`` for testing.
+
+    Backend options, under the ``"cloudtasks"`` namespace: ``dispatch_deadline``,
+    ``headers``, and ``queue`` for a one-off override.
+    """
+
+    def __init__(
+        self,
+        *,
+        project: str | None = None,
+        location: str | None = None,
+        queue: str = "default",
+        url: str | None = None,
+        service_account_email: str | None = None,
+        audience: str | None = None,
+        client: Any = None,
+        name: str = "cloudtasks",
+    ) -> None:
+        missing = [
+            key
+            for key, value in (("project", project), ("location", location), ("url", url))
+            if not value
+        ]
+        if missing:
+            raise ConfigurationError(
+                f"CloudTasksBackend needs {', '.join(missing)}; 'url' is the endpoint in your "
+                "service that Cloud Tasks will POST each task to"
+            )
+        assert project and location and url  # narrowed by the check above
+        self._project = project
+        self._location = location
+        self._queue = queue
+        self._url = url
+        self._service_account_email = service_account_email
+        self._audience = audience
+        self._client = client
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def kind(self) -> ExecutionKind:
+        return ExecutionKind.TASK
+
+    @property
+    def capabilities(self) -> CapabilitySet:
+        return CapabilitySet(CLOUD_TASKS_CAPABILITIES, provider=self._name)
+
+    def _tasks(self) -> Any:
+        if self._client is None:
+            try:
+                from google.cloud import tasks_v2
+            except ImportError as exc:  # pragma: no cover - depends on the environment
+                raise ConfigurationError(
+                    "the Cloud Tasks backend needs the Google SDK: "
+                    "pip install 'taskport-cloudtasks[gcp]'"
+                ) from exc
+            self._client = tasks_v2.CloudTasksClient()
+        return self._client
+
+    def queue_path(self, queue: str) -> str:
+        client = self._tasks()
+        builder = getattr(client, "queue_path", None)
+        if callable(builder):
+            return str(builder(self._project, self._location, queue))
+        return f"projects/{self._project}/locations/{self._location}/queues/{queue}"
+
+    # -- submission -------------------------------------------------------------- #
+    def _submit(self, spec: ExecutionSpec) -> Execution:
+        assert isinstance(spec, TaskSpec)
+        options = spec.options_for("cloudtasks")
+        queue = str(options.get("queue") or spec.queue or self._queue)
+
+        http_request: dict[str, Any] = {
+            "http_method": "POST",
+            "url": self._url,
+            "headers": {
+                "Content-Type": "application/json",
+                **self._correlation_headers(spec.correlation),
+                **dict(options.get("headers") or {}),  # type: ignore[arg-type]
+            },
+            "body": json.dumps(build_message(spec)).encode("utf-8"),
+        }
+        if self._service_account_email:
+            oidc: dict[str, str] = {"service_account_email": self._service_account_email}
+            if self._audience or self._url:
+                oidc["audience"] = self._audience or self._url
+            http_request["oidc_token"] = oidc
+
+        task: dict[str, Any] = {"http_request": http_request}
+        scheduled_for = spec.scheduled_for()
+        if scheduled_for is not None:
+            task["schedule_time"] = scheduled_for
+        if "dispatch_deadline" in options:
+            task["dispatch_deadline"] = options["dispatch_deadline"]
+        if spec.idempotency_key is not None:
+            # A named task is refused if the name was used recently — Cloud Tasks'
+            # own, real, time-bounded deduplication. The window is Google's, not
+            # ours, and this is not an exactly-once promise.
+            task["name"] = f"{self.queue_path(queue)}/tasks/{_safe_name(spec.idempotency_key)}"
+
+        try:
+            created = self._tasks().create_task(
+                request={"parent": self.queue_path(queue), "task": task}
+            )
+        except Exception as exc:
+            raise SubmissionError(
+                f"Cloud Tasks could not create a task for {spec.task!r} on queue {queue!r}: {exc}",
+                backend=self._name,
+            ) from exc
+
+        external_id = getattr(created, "name", None)
+        return Execution(
+            id=new_execution_id(ExecutionKind.TASK),
+            kind=ExecutionKind.TASK,
+            backend=self._name,
+            # QUEUED is the last thing this backend can honestly observe: Cloud
+            # Tasks will not tell us anything after creation.
+            state=ExecutionState.QUEUED,
+            name=spec.name,
+            created_at=datetime.now(UTC),
+            external_id=str(external_id) if external_id else None,
+            correlation=spec.correlation,
+            provider_metadata=ProviderMetadata(
+                provider="gcp",
+                provider_id=str(external_id) if external_id else None,
+                region=self._location,
+                resource=self.queue_path(queue),
+                labels=dict(spec.labels),
+            ),
+            metadata={"queue": queue, "url": self._url},
+        )
+
+    @staticmethod
+    def _correlation_headers(correlation: Correlation | None) -> dict[str, str]:
+        """Propagate correlation and trace context as HTTP headers.
+
+        This is how a trace survives the hop through Google's infrastructure: the
+        receiver rebuilds the correlation from these headers, so one flow stays
+        followable from the web request through the queue into the task.
+        """
+        return correlation.to_headers() if correlation is not None else {}
+
+
+def _safe_name(key: str) -> str:
+    """Reduce an idempotency key to the characters Cloud Tasks allows in a name."""
+    cleaned = "".join(char if char.isalnum() or char in "-_" else "-" for char in key)
+    return cleaned[:500] or "taskport"
+
+
+def make_backend(**options: Any) -> CloudTasksBackend:
+    """Entry point for ``{"factory": "cloudtasks", ...}`` configuration."""
+    return CloudTasksBackend(
+        project=options.get("project"),
+        location=options.get("location"),
+        queue=str(options.get("queue", "default")),
+        url=options.get("url"),
+        service_account_email=options.get("service_account_email"),
+        audience=options.get("audience"),
+        client=options.get("client"),
+        name=str(options.get("name", "cloudtasks")),
+    )
+
+
+__all__ = [
+    "CLOUD_TASKS_CAPABILITIES",
+    "MESSAGE_VERSION",
+    "CloudTasksBackend",
+    "CloudTasksMessage",
+    "build_message",
+    "make_backend",
+]
