@@ -10,6 +10,8 @@ for the tour. This directory holds the detail.
 
 - [The 2026 refactor](architecture/refactor-2026.md) — the current design, the
   problems it solves, and how the migration was executed.
+- [Async, threads and processes](concurrency.md) — what happens to an `async def`,
+  which objects are shareable, and what crosses a process boundary.
 - [Security](security.md) — function resolution, import allowlists, push endpoint
   authentication, subprocess isolation, payload contents.
 - [Migration 0.1 → 0.2](migration/0.1-to-0.2.md) — every renamed symbol.

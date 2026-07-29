@@ -44,6 +44,7 @@ nav:
   - Architecture:
       - Overview: architecture/overview.md
       - The 2026 refactor: architecture/refactor-2026.md
+      - Async, threads and processes: concurrency.md
       - Security: security.md
   - Migration:
       - 0.1 to 0.2: migration/0.1-to-0.2.md
