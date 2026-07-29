@@ -625,3 +625,135 @@ class TestDeferredRoutingExample:
         spec = TaskSpec(task="tasks_fixture:add", queue="metadata")
         assert "procrastinate" not in repr(spec)
         assert "thread" not in repr(spec)
+
+
+class TestAsyncModel:
+    """The behaviour documented in docs/concurrency.md, checked rather than claimed."""
+
+    async def test_inline_submit_works_from_inside_a_running_event_loop(
+        self, runtime: Taskport
+    ) -> None:
+        """The branch that would otherwise explode in a FastAPI handler.
+
+        ``asyncio.run()`` raises when a loop is already running, so a naive
+        implementation breaks the first time someone submits from async code.
+        This test runs inside a loop (pytest-asyncio) and submits an async
+        callable, which is exactly that situation.
+        """
+        handle = runtime.inline.submit(tasks_fixture.async_double, 21)
+        assert handle.result().value == 42
+
+    async def test_a_sync_callable_also_works_from_async_code(self, runtime: Taskport) -> None:
+        assert runtime.inline.run(tasks_fixture.add, 20, 22) == 42
+
+    async def test_submitting_a_task_from_async_code_works(self, runtime: Taskport) -> None:
+        """submit() is a short local operation, so blocking the loop briefly is fine."""
+        handle = runtime.tasks.submit(tasks_fixture.async_double, 21)
+        assert handle.result(10).value == 42
+
+    def test_async_capability_is_advertised_only_where_true(self, runtime: Taskport) -> None:
+        from taskport import Capability
+
+        assert Capability.ASYNC_CALLABLE in runtime.capabilities("inline")
+        assert Capability.ASYNC_CALLABLE in runtime.capabilities("thread")
+        # A subprocess job runs an argv, not a Python callable, so the question
+        # does not apply and the capability is absent.
+        assert Capability.ASYNC_CALLABLE not in runtime.capabilities("subprocess")
+
+    def test_async_callable_detection_sees_through_partials(self) -> None:
+        """Detection unwraps functools.partial, as the concurrency doc states."""
+        import functools
+
+        from taskport.functions import is_async_callable
+
+        assert is_async_callable(functools.partial(tasks_fixture.async_double, 1))
+        assert not is_async_callable(functools.partial(tasks_fixture.add, 1))
+
+    def test_async_callable_detection_sees_async_call_objects(self) -> None:
+        from taskport.functions import is_async_callable
+
+        class AsyncCallable:
+            async def __call__(self) -> int:
+                return 1
+
+        class SyncCallable:
+            def __call__(self) -> int:
+                return 1
+
+        assert is_async_callable(AsyncCallable())
+        assert not is_async_callable(SyncCallable())
+
+
+class TestImmutabilityGuarantees:
+    """The table in docs/concurrency.md, asserted."""
+
+    def test_every_model_type_is_frozen(self) -> None:
+        from taskport import (
+            BackendConfig,
+            Correlation,
+            Execution,
+            ExecutionResult,
+            Resources,
+            Route,
+        )
+        from taskport import (
+            RetryPolicy as _RetryPolicy,
+        )
+        from taskport import (
+            TaskportConfig as _TaskportConfig,
+        )
+        from taskport import (
+            TimeoutPolicy as _TimeoutPolicy,
+        )
+        from taskport.specs import ExecutionSpec
+
+        frozen = (
+            ExecutionSpec,
+            TaskSpec,
+            JobSpec,
+            InlineSpec,
+            Execution,
+            ExecutionResult,
+            _RetryPolicy,
+            _TimeoutPolicy,
+            Resources,
+            Route,
+            _TaskportConfig,
+            BackendConfig,
+            Correlation,
+        )
+        for model in frozen:
+            params = getattr(model, "__dataclass_params__", None)
+            assert params is not None, f"{model.__name__} is not a dataclass"
+            assert params.frozen, f"{model.__name__} must be frozen"
+
+    def test_mapping_fields_are_proxied_not_referenced(self) -> None:
+        """A caller mutating their own dict must not change a submitted spec."""
+        args = {"key": "value"}
+        labels = {"tier": "gold"}
+        env = {"HOME": "/root"}
+
+        task = TaskSpec(task="pkg.mod:fn", kwargs=args, labels=labels)
+        job = JobSpec(job="j", env=env, labels=labels)
+
+        args["key"] = "changed"
+        labels["tier"] = "bronze"
+        env["HOME"] = "/tmp"
+
+        assert task.kwargs["key"] == "value"
+        assert task.labels["tier"] == "gold"
+        assert job.env["HOME"] == "/root"
+        assert job.labels["tier"] == "gold"
+
+    def test_a_proxied_mapping_cannot_be_written_through(self) -> None:
+        spec = TaskSpec(task="pkg.mod:fn", labels={"a": "b"})
+        with pytest.raises(TypeError):
+            spec.labels["a"] = "c"  # type: ignore[index]
+
+    def test_capability_sets_are_hashable_so_they_can_be_cached(self) -> None:
+        from taskport import CapabilitySet
+
+        rt = Taskport.local()
+        assert hash(rt.capabilities("inline")) == hash(rt.capabilities("inline"))
+        assert isinstance(rt.capabilities("inline"), CapabilitySet)
+        rt.close()

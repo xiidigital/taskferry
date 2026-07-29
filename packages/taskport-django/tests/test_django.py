@@ -286,3 +286,18 @@ class TestNoLeakage:
             "run_task",
             "submit_on_commit",
         }
+
+
+class TestAsyncEnqueue:
+    """Django's ``aenqueue`` over the bridge, as documented in docs/concurrency.md."""
+
+    async def test_aenqueue_reaches_the_engine(self) -> None:
+        """Django implements aenqueue over enqueue with sync_to_async, so the
+        bridge inherits it. Claimed in the concurrency doc; checked here."""
+        result = await add.aenqueue(20, 22)
+        assert result.id.startswith("task_")
+
+        runtime = get_runtime()
+        handle = runtime.get(result.id)
+        assert handle.wait(10).state is ExecutionState.SUCCEEDED
+        assert handle.result().value == 42

@@ -338,6 +338,7 @@ asserted to *reject* cancellation, not skipped.
 ## Documentation
 
 - [Architecture](docs/architecture/refactor-2026.md) — the current design and how it got here
+- [Async, threads and processes](docs/concurrency.md) — the concurrency model, precisely
 - [Migration guide](docs/migration/0.1-to-0.2.md) — moving from 0.1
 - [ADRs](docs/adr/) — every decision, with alternatives and consequences
 - [Security](docs/security.md) — function resolution, allowlists, endpoint auth
