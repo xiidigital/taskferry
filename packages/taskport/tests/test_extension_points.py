@@ -68,7 +68,16 @@ class TestPlugins:
         stands alone. In the workspace they are all present and this runs.
         """
         discovered = available_backends()
-        adapters = {"procrastinate", "cloudrun", "cloudtasks", "aws-batch", "kubernetes"}
+        adapters = {
+            "procrastinate",
+            "cloudrun",
+            "cloudtasks",
+            "sqs",
+            "servicebus",
+            "dramatiq",
+            "aws-batch",
+            "kubernetes",
+        }
         if not adapters & set(discovered):
             pytest.skip("no adapter distributions installed in this environment")
         missing = sorted(adapters - set(discovered))

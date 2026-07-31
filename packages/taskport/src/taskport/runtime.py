@@ -248,6 +248,27 @@ class Taskport:
             RoutingError: no backend matched and the kind has no default.
             UnsupportedCapability: the chosen backend cannot honour the spec.
         """
+        target, name, prepared = self._prepare(
+            spec, backend=backend, idempotency_key=idempotency_key
+        )
+        execution = target.submit(prepared)
+        self._track(execution.id, name)
+        return ExecutionHandle(execution, target)
+
+    def _prepare(
+        self,
+        spec: AnySpec,
+        *,
+        backend: str | None,
+        idempotency_key: str | None,
+    ) -> tuple[ExecutionBackend, str, AnySpec]:
+        """Route and validate, without submitting.
+
+        Shared verbatim by the sync runtime and by
+        :class:`~taskport.aio.AsyncTaskport`, so the two surfaces cannot drift on
+        routing, correlation or the kind check — the parts where a divergence
+        would be silent and expensive.
+        """
         if idempotency_key is not None:
             spec = spec.evolve(idempotency_key=idempotency_key)
         if spec.correlation is None:
@@ -261,9 +282,7 @@ class Taskport:
                 f"{spec.kind.value} spec ({spec.name!r}); check the routes for "
                 f"queue={spec.queue!r} profile={spec.profile!r}"
             )
-        execution = target.submit(spec)
-        self._track(execution.id, name)
-        return ExecutionHandle(execution, target)
+        return target, name, spec
 
     # -- lookup ------------------------------------------------------------- #
     def get(
@@ -280,6 +299,14 @@ class Taskport:
             ExecutionNotFound: when the owner is unknown or the backend has no
                 record of the id.
         """
+        target = self._owner_backend(execution_id, backend)
+        execution = target.get(ExecutionId(str(execution_id)))
+        return ExecutionHandle(execution, target)
+
+    def _owner_backend(
+        self, execution_id: ExecutionId | str, backend: str | None
+    ) -> ExecutionBackend:
+        """The backend that owns ``execution_id``. Shared with the async surface."""
         key = str(execution_id)
         name = backend if backend is not None else self._owner_of(key)
         if name is None:
@@ -287,9 +314,7 @@ class Taskport:
                 f"{key!r} was not submitted by this runtime; pass backend='<name>' to say "
                 f"which engine owns it (configured: {', '.join(self.backend_names()) or '<none>'})"
             )
-        target = self.backend(name)
-        execution = target.get(ExecutionId(key))
-        return ExecutionHandle(execution, target)
+        return self.backend(name)
 
     def cancel(self, execution_id: ExecutionId | str, *, backend: str | None = None) -> Execution:
         """Cancel an execution. Requires the owning backend to advertise ``CANCEL``."""

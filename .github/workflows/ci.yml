@@ -40,6 +40,9 @@ jobs:
           packages/taskport-procrastinate/src
           packages/taskport-cloudtasks/src
           packages/taskport-cloudrun/src
+          packages/taskport-sqs/src
+          packages/taskport-servicebus/src
+          packages/taskport-dramatiq/src
           packages/taskport-jobs/src
           packages/taskport-events/src
           packages/taskport-scheduler/src
@@ -82,6 +85,7 @@ jobs:
       - name: The acceptance criterion, in a bare interpreter
         run: |
           .venv-isolated/bin/python - <<'PY'
+          import asyncio
           import sys
           import taskport
 
@@ -92,6 +96,19 @@ jobs:
 
           execution = runtime.inline.submit(add, 20, 22)
           assert execution.result().value == 42, execution
+
+          # The async surface must work alone too — it is part of the core.
+          # Inline, not tasks: `add` is defined in __main__, and a task must be
+          # importable by name. Taskport rejects that at submit time, which is
+          # the behaviour we want and not what this probe is checking.
+          async def check_async() -> int:
+              aio = taskport.AsyncTaskport.local()
+              handle = await aio.inline.submit(add, 20, 22)
+              value = await handle.value()
+              await aio.close()
+              return value
+
+          assert asyncio.run(check_async()) == 42
 
           for forbidden in ("django", "procrastinate", "celery", "redis", "psycopg",
                             "sqlalchemy", "boto3", "google", "azure", "kubernetes"):

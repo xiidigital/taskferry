@@ -220,6 +220,9 @@ class TestAdapterDependencyGraph:
     ADAPTERS: ClassVar[tuple[str, ...]] = (
         "taskport-procrastinate",
         "taskport-cloudtasks",
+        "taskport-sqs",
+        "taskport-servicebus",
+        "taskport-dramatiq",
         "taskport-cloudrun",
         "taskport-jobs",
         "taskport-events",

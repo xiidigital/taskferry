@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "taskport-dramatiq"
+version = "0.2.0"
+description = "Dramatiq task backend for Taskport — Redis or RabbitMQ backed tasks."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Taskport authors" }]
+keywords = ["taskport", "dramatiq", "redis", "rabbitmq", "tasks"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = ["taskport>=0.2,<0.3"]
+
+[project.optional-dependencies]
+dramatiq = ["dramatiq>=1.16"]
+redis = ["dramatiq[redis]>=1.16"]
+rabbitmq = ["dramatiq[rabbitmq]>=1.16"]
+
+[project.entry-points."taskport.backends"]
+dramatiq = "taskport_dramatiq:make_backend"
+
+[project.urls]
+Homepage = "https://github.com/taskport/taskport-dramatiq"
+Documentation = "https://taskport.dev"
+Source = "https://github.com/taskport/taskport-dramatiq"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taskport_dramatiq"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "CHANGELOG.md", "LICENSE"]

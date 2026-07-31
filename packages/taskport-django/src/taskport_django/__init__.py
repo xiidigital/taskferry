@@ -64,7 +64,8 @@ from __future__ import annotations
 from .backend import TaskportBackend
 from .config import config_from_settings, get_runtime, reset_runtime
 from .execute import run_task
-from .transaction import submit_on_commit
+from .transaction import submit_on_commit, task_on_commit
+from .views import make_task_webhook, task_webhook
 
 __version__ = "0.2.0"
 
@@ -73,9 +74,12 @@ __all__ = [
     "__version__",
     "config_from_settings",
     "get_runtime",
+    "make_task_webhook",
     "reset_runtime",
     "run_task",
     "submit_on_commit",
+    "task_on_commit",
+    "task_webhook",
 ]
 
 default_app_config = "taskport_django.apps.TaskportConfig"

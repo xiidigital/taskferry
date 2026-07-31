@@ -60,6 +60,7 @@ nav:
           - 0018 · No exactly-once: adr/0018-no-exactly-once.md
           - 0019 · Retry ownership: adr/0019-retry-ownership.md
           - 0020 · Packaging strategy: adr/0020-packaging-strategy.md
+          - 0021 · Async API: adr/0021-async-api.md
       - Still in force:
           - 0004 · Core scope: adr/0004-taskport-core-scope.md
           - 0005 · Capability model: adr/0005-capability-model.md

@@ -161,14 +161,15 @@ never emulated, and never silently skipped.
 runtime.jobs.submit("train", resources=Resources(gpu=1), profile="cloudrun")
 ```
 
-| | Procrastinate | Cloud Tasks | Cloud Run | AWS Batch | Kubernetes | thread | subprocess |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `STATE` | yes | **no** | yes | yes | yes | yes | yes |
-| `RESULT` | **no** | **no** | **no** | yes | **no** | yes | yes |
-| `CANCEL` | yes | **no** | yes | yes | yes | yes | yes |
-| `DELAY` | yes | yes | – | – | – | yes | – |
-| `PRIORITY` | yes | **no** | – | – | – | **no** | – |
-| `GPU` | – | – | **no** | yes | yes | – | **no** |
+| | Procrastinate | Dramatiq | Cloud Tasks | SQS | Service Bus | Cloud Run | AWS Batch | Kubernetes |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `STATE` | yes | **no** | **no** | **no** | **no** | yes | yes | yes |
+| `RESULT` | **no** | **no** | **no** | **no** | **no** | **no** | yes | **no** |
+| `CANCEL` | yes | **no** | **no** | **no** | **no** | yes | yes | yes |
+| `DELAY` | yes | yes | yes | ≤900s | unbounded | – | – | – |
+| `PRIORITY` | yes | **no** | **no** | **no** | **no** | – | – | – |
+| `DEDUPLICATION` | yes | **no** | yes | FIFO only | yes | – | – | – |
+| `GPU` | – | – | – | – | – | **no** | yes | yes |
 
 The blanks are the point, and they are
 [asserted in tests](packages/taskport-jobs/tests/test_jobs.py), not just written
@@ -209,6 +210,33 @@ handle.result()  # the outcome, or raise ExecutionError
 handle.cancel()  # or raise UnsupportedCapability
 ```
 
+## Async
+
+Same vocabulary, one `await` apart:
+
+```python
+from taskport import AsyncTaskport
+
+runtime = AsyncTaskport.local()
+
+handle = await runtime.tasks.submit("myapp.tasks:send_email", 42)
+execution = await handle.wait(30)
+value = await handle.value()
+```
+
+`AsyncTaskport` wraps a sync runtime, so a process with async views and sync
+management commands shares one set of backends and one connection pool:
+
+```python
+aio = AsyncTaskport(get_runtime())  # the project's existing runtime
+```
+
+The async path is real, not an `async def` painted over a blocking call — two
+tests hold that honest by counting event-loop ticks during a slow job and by
+requiring four 0.2s jobs to finish in ~0.2s. See
+[docs/concurrency.md](docs/concurrency.md) and
+[ADR-0021](docs/adr/0021-async-api.md).
+
 ## Guarantees, stated plainly
 
 Taskport promises **at-least-once or at-most-once, depending on the backend**. It
@@ -235,9 +263,12 @@ engine is a separate, optional distribution.
 
 | Install | Provides | Needs |
 | --- | --- | --- |
-| `taskport` | runtime, router, inline/thread/process/subprocess backends, CLI | nothing |
-| `taskport-procrastinate` | Procrastinate task backend | PostgreSQL |
+| `taskport` | runtime, router, sync + async API, local backends, CLI | nothing |
+| `taskport-procrastinate` | Procrastinate task backend + worker dispatcher | PostgreSQL |
 | `taskport-cloudtasks` | Cloud Tasks task backend + receiver | GCP |
+| `taskport-sqs` | SQS task backend + Lambda/ECS consumers | AWS |
+| `taskport-servicebus` | Azure Service Bus task backend + consumers | Azure |
+| `taskport-dramatiq` | Dramatiq task backend + worker actor | Redis or RabbitMQ |
 | `taskport-cloudrun` | Cloud Run Jobs backend | GCP |
 | `taskport-jobs` | AWS Batch, Kubernetes, Azure Container Apps job backends | the matching SDK |
 | `taskport-django` | `django.tasks` backend, settings, checks, `manage.py taskport` | Django |
@@ -249,6 +280,9 @@ flowchart BT
     TPD["taskport-django"]
     TPP["taskport-procrastinate"]
     TPC["taskport-cloudtasks"]
+    TPQ["taskport-sqs"]
+    TPB["taskport-servicebus"]
+    TPM["taskport-dramatiq"]
     TPR["taskport-cloudrun"]
     TPJ["taskport-jobs"]
     TPE["taskport-events"]
@@ -258,6 +292,9 @@ flowchart BT
     TPD --> TP
     TPP --> TP
     TPC --> TP
+    TPQ --> TP
+    TPB --> TP
+    TPM --> TP
     TPR --> TP
     TPJ --> TP
     TPE --> TP

@@ -10,6 +10,7 @@ The two claims this file exists to check:
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from typing import Any
@@ -283,8 +284,11 @@ class TestNoLeakage:
             "config_from_settings",
             "get_runtime",
             "reset_runtime",
+            "make_task_webhook",
             "run_task",
             "submit_on_commit",
+            "task_on_commit",
+            "task_webhook",
         }
 
 
@@ -301,3 +305,93 @@ class TestAsyncEnqueue:
         handle = runtime.get(result.id)
         assert handle.wait(10).state is ExecutionState.SUCCEEDED
         assert handle.result().value == 42
+
+
+class TestWebhookView:
+    """The Django glue over the framework-agnostic receiver."""
+
+    def _post(self, view, payload, **extra):
+        from django.test import RequestFactory
+
+        return view(
+            RequestFactory().post(
+                "/_taskport/execute",
+                data=json.dumps(payload),
+                content_type="application/json",
+                **extra,
+            )
+        )
+
+    def test_a_valid_envelope_runs_and_returns_204(self) -> None:
+        from taskport import FunctionRegistry
+        from taskport.envelope import ENVELOPE_VERSION
+        from taskport_django.views import make_task_webhook
+
+        ran: list[int] = []
+        registry = FunctionRegistry()
+        registry.register(lambda n: ran.append(n), name="tests:record")
+
+        view = make_task_webhook(registry=registry)
+        response = self._post(
+            view, {"taskport": ENVELOPE_VERSION, "task": "tests:record", "args": [42]}
+        )
+        assert response.status_code == 204
+        assert ran == [42]
+
+    def test_a_malformed_body_is_400_not_500(self) -> None:
+        """Retrying cannot fix a malformed body, so the queue must be told to stop."""
+        from django.test import RequestFactory
+
+        from taskport_django.views import task_webhook
+
+        request = RequestFactory().post(
+            "/_taskport/execute", data="{not json", content_type="application/json"
+        )
+        assert task_webhook(request).status_code == 400
+
+    def test_a_version_mismatch_is_400(self) -> None:
+        from taskport_django.views import task_webhook
+
+        assert self._post(task_webhook, {"taskport": "99", "task": "m:f"}).status_code == 400
+
+    def test_an_unresolvable_task_is_404(self) -> None:
+        """Permanent, so the push service should give up rather than retry."""
+        from taskport import FunctionRegistry
+        from taskport.envelope import ENVELOPE_VERSION
+        from taskport_django.views import make_task_webhook
+
+        view = make_task_webhook(registry=FunctionRegistry(allowed_modules=["myapp"]))
+        response = self._post(view, {"taskport": ENVELOPE_VERSION, "task": "os:system"})
+        assert response.status_code == 404
+
+    def test_a_failing_task_propagates_so_the_queue_retries(self) -> None:
+        from taskport import FunctionRegistry
+        from taskport.envelope import ENVELOPE_VERSION
+        from taskport_django.views import make_task_webhook
+
+        registry = FunctionRegistry()
+
+        def boom() -> None:
+            raise RuntimeError("transient")
+
+        registry.register(boom, name="tests:boom")
+        view = make_task_webhook(registry=registry)
+        with pytest.raises(RuntimeError, match="transient"):
+            self._post(view, {"taskport": ENVELOPE_VERSION, "task": "tests:boom"})
+
+    def test_authentication_is_enforced_when_supplied(self) -> None:
+        """Taskport cannot authenticate for you, but it makes doing so one argument."""
+        from taskport.envelope import ENVELOPE_VERSION
+        from taskport_django.views import make_task_webhook
+
+        view = make_task_webhook(authenticate=lambda request: False)
+        response = self._post(view, {"taskport": ENVELOPE_VERSION, "task": "m:f"})
+        assert response.status_code == 403
+
+    def test_get_is_rejected(self) -> None:
+        from django.test import RequestFactory
+
+        from taskport_django.views import task_webhook
+
+        response = task_webhook(RequestFactory().get("/_taskport/execute"))
+        assert response.status_code == 405

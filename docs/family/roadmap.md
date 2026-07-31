@@ -25,9 +25,9 @@ execution behind one API — which was the condition for calling the layer usabl
 ### `taskport` — 0.2.0
 
 Runtime, router, capabilities, executions and handles, specs, retry and timeout
-policies, function registry, hooks, plugin discovery, configuration, CLI,
-reusable contract suites, and four built-in local backends. Zero dependencies,
-enforced three ways. 87% covered.
+policies, function registry, the portable wire envelope, hooks, plugin discovery,
+configuration, CLI, reusable contract suites, four built-in local backends, and
+the async surface (`AsyncTaskport`). Zero dependencies, enforced three ways.
 
 ### Adapters — 0.2.0
 
@@ -35,6 +35,9 @@ enforced three ways. 87% covered.
 | --- | --- |
 | `taskport-procrastinate` | ✅ task backend + worker dispatcher, contract-tested |
 | `taskport-cloudtasks` | ✅ task backend + framework-agnostic receiver |
+| `taskport-sqs` | ✅ task backend + Lambda/ECS consumers, per-queue capabilities |
+| `taskport-servicebus` | ✅ task backend + consumers, unbounded scheduling |
+| `taskport-dramatiq` | ✅ task backend + worker actor |
 | `taskport-cloudrun` | ✅ job backend, contract-tested |
 | `taskport-jobs` | ✅ AWS Batch, Kubernetes, Azure Container Apps job backends |
 | `taskport-django` | ✅ `django.tasks` backend, settings, on-commit, checks, CLI |
@@ -48,16 +51,13 @@ Ordered by how much each would teach us about whether the abstraction holds.
 1. **A Celery task backend.** Celery's model differs from both Procrastinate's and
    Cloud Tasks' — it has its own result backend, its own routing, its own
    serializers. If `TaskSpec` survives Celery unchanged, the task port is right.
-2. **Restore the 0.1 pull-based backends** — SQS, Azure Service Bus, Dramatiq —
-   against the framework-agnostic `TaskBackend` port. Removed rather than
-   half-ported in 0.2; see the [migration guide](../migration/0.1-to-0.2.md).
-3. **Log streaming for jobs.** Every job backend exposes a log *location*; none
+2. **Log streaming for jobs.** Every job backend exposes a log *location*; none
    streams. It is a real gap for anyone watching a long GDAL run.
-4. **An async API.** The current surface is synchronous, and `async def` callables
-   are executed correctly, but `await runtime.tasks.submit(...)` does not exist.
-   Adding it needs a decision about whether adapters implement both or one is
-   derived — worth doing deliberately rather than by accident.
-5. **`taskport-otel`.** The tracer bridge lives in `taskport.core.otel` behind an
+3. **Natively async adapters.** Every backend has a working async path derived
+   with `asyncio.to_thread`. An adapter built on `aiobotocore` or an async
+   Procrastinate connector could skip the thread entirely — a performance
+   refinement, not a correctness one.
+4. **`taskport-otel`.** The tracer bridge lives in `taskport.core.otel` behind an
    extra. Moving it to its own distribution would remove the last optional
    dependency from the core.
 

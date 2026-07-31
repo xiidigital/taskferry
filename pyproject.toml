@@ -9,6 +9,9 @@
 #     ^-- taskport-procrastinate
 #     ^-- taskport-cloudtasks
 #     ^-- taskport-cloudrun
+#     ^-- taskport-sqs
+#     ^-- taskport-servicebus
+#     ^-- taskport-dramatiq
 #     ^-- taskport-jobs
 #     ^-- taskport-django
 #     ^-- taskport-events
@@ -24,6 +27,9 @@ taskport = { workspace = true }
 taskport-procrastinate = { workspace = true }
 taskport-cloudtasks = { workspace = true }
 taskport-cloudrun = { workspace = true }
+taskport-dramatiq = { workspace = true }
+taskport-servicebus = { workspace = true }
+taskport-sqs = { workspace = true }
 taskport-jobs = { workspace = true }
 taskport-events = { workspace = true }
 taskport-scheduler = { workspace = true }
@@ -48,6 +54,9 @@ dev = [
     "taskport-procrastinate",
     "taskport-cloudtasks",
     "taskport-cloudrun",
+    "taskport-sqs",
+    "taskport-servicebus",
+    "taskport-dramatiq",
     "taskport-jobs",
     "taskport-events",
     "taskport-scheduler",
@@ -82,6 +91,9 @@ mypy_path = [
     "packages/taskport-procrastinate/src",
     "packages/taskport-cloudtasks/src",
     "packages/taskport-cloudrun/src",
+    "packages/taskport-sqs/src",
+    "packages/taskport-servicebus/src",
+    "packages/taskport-dramatiq/src",
     "packages/taskport-jobs/src",
     "packages/taskport-events/src",
     "packages/taskport-scheduler/src",
@@ -114,6 +126,7 @@ module = [
     "django.*",
     "confluent_kafka.*",
     "procrastinate.*",
+    "dramatiq.*",
 ]
 ignore_missing_imports = true
 
@@ -145,6 +158,9 @@ source = [
     "taskport_procrastinate",
     "taskport_cloudtasks",
     "taskport_cloudrun",
+    "taskport_sqs",
+    "taskport_servicebus",
+    "taskport_dramatiq",
     "taskport_jobs",
     "taskport_events",
     "taskport_scheduler",
