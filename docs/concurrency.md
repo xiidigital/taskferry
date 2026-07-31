@@ -8,14 +8,45 @@ bugs that only appear under load:
 
 ## The async model
 
-Taskport's public API is **synchronous**. `submit()` returns an
-`ExecutionHandle`; `wait()` and `result()` block.
+Taskport has **two runtimes with the same vocabulary**:
 
-That is a deliberate choice, not an oversight. Taskport's job is to hand work to
-an engine, which is a fast, local, usually-blocking operation — a `defer()` into
-PostgreSQL, a `create_task` HTTP call, a `Popen`. Making the whole surface async
-would force every caller into an event loop to gain nothing, and would make the
-library unusable from a management command or a `__main__` script.
+```python
+from taskport import Taskport, AsyncTaskport
+
+runtime = Taskport.local()
+handle = runtime.tasks.submit("myapp.tasks:send_email", 42)
+execution = handle.wait(30)
+
+runtime = AsyncTaskport.local()
+handle = await runtime.tasks.submit("myapp.tasks:send_email", 42)
+execution = await handle.wait(30)
+```
+
+Same method names on both. Porting a module between them is adding or removing
+`await`, not rewriting call sites. See ADR-0021 for why that beats an
+`asubmit`/`aget` prefix on one class — in short, `await` is a keyword, so a
+prefixed `wait` has nowhere to go, and `httpx.Client`/`httpx.AsyncClient` is the
+convention Python has settled on.
+
+A sync surface has to exist too: a management command, a `manage.py` script or a
+CLI has no event loop, and forcing one on them to enqueue a task would be
+absurd.
+
+### One process, both surfaces
+
+`AsyncTaskport` **wraps** a sync runtime rather than duplicating it. Routing,
+configuration, backends, the execution index, hooks and the function registry are
+the same objects, so a Django project with async views and sync management
+commands gets one connection pool, not two:
+
+```python
+runtime = Taskport.local()
+aio = AsyncTaskport(runtime)  # shares everything
+
+sync_handle = runtime.tasks.submit(fn, 1)  # from a command
+async_handle = await aio.tasks.submit(fn, 1)  # from an async view
+await aio.get(sync_handle.id)  # each sees the other's work
+```
 
 ### `async def` task functions are fully supported
 
@@ -59,27 +90,51 @@ Taskport instead runs the coroutine on its own loop in a worker thread and block
 for the result — which is the honest behaviour, because `submit()` is synchronous
 by contract.
 
-**Blocking a running event loop is bad.** Taskport does it because the alternative
-is raising, and it is documented here rather than hidden. Inside async code:
+**Blocking a running event loop is bad**, which is exactly why `AsyncTaskport`
+exists. Inside async code, use it — the sync runtime's behaviour above is the
+fallback for when someone reaches for the wrong one, not the recommended path.
 
-- for **inline** work, just `await` the coroutine yourself — you do not need
-  Taskport to run something in the process you are already in;
-- for **tasks and jobs**, `submit()` is a short local operation. If it is on a hot
-  path, wrap it: `await asyncio.to_thread(runtime.tasks.submit, fn, arg)`.
+### The async path is real, not cosmetic
 
-### What does not exist yet
+Every backend has `asubmit` / `aget` / `acancel` / `aresult` / `await_`.
+:class:`~taskport.ports.BaseBackend` derives them from the sync methods with
+`asyncio.to_thread`, so the caller's event loop keeps running — it is a genuine
+async path, not an `async def` painted over a blocking call. An adapter whose
+client is natively async overrides them and skips the thread; nothing depends on
+whether it has.
 
-There is no `await runtime.tasks.submit(...)`. Adding one needs a decision about
-whether every adapter implements both surfaces or one is derived from the other,
-and doing that by accident would leave half the adapters with a fake async path
-that blocks. It is on [the roadmap](family/roadmap.md) as a deliberate design
-task.
+Two tests hold that honest, because both would pass trivially against a fake
+async path and fail loudly against a blocking one:
+
+- `test_the_loop_keeps_running_during_a_slow_job` — counts event-loop ticks while
+  a 0.4s job runs, and fails if the loop stalled;
+- `test_submissions_run_concurrently` — four 0.2s jobs must finish in ~0.2s, not
+  ~0.8s.
+
+The adapter-facing port keeps the `a` prefix because there both surfaces sit on
+**one** object and must be told apart. Application developers never see those
+names; adapter authors do.
 
 ### Django
 
 `django.tasks` exposes `aenqueue()`, which Django implements over `enqueue()` with
 `sync_to_async(thread_sensitive=True)`. `TaskportBackend` inherits that, so
 `await my_task.aenqueue(42)` works and does the right thing.
+
+For jobs, inline work, or anything outside the `django.tasks` API, use
+`AsyncTaskport` directly:
+
+```python
+from taskport import AsyncTaskport
+from taskport_django import get_runtime
+
+aio = AsyncTaskport(get_runtime())  # the project's shared runtime
+
+
+async def build_view(request):
+    handle = await aio.jobs.submit("build-cog", image="gdal:latest", profile="heavy")
+    return JsonResponse({"execution": str(handle.id)})
+```
 
 ## Thread and process safety
 
@@ -96,7 +151,9 @@ task.
 | `HookChain` | none — immutable tuple | yes | no (hooks are live objects) |
 | `Correlation` | none — frozen | yes | yes, via `to_headers()` |
 | `Taskport` runtime | backend cache, execution index | **yes** — lock-guarded | no |
+| `AsyncTaskport` | none of its own — wraps a `Taskport` | yes | no |
 | `ExecutionHandle` | cached snapshot | **yes** — lock-guarded | no — carry `handle.id` |
+| `AsyncExecutionHandle` | cached snapshot | one loop — `asyncio.Lock` | no — carry `handle.id` |
 | `ExternalIdIndex` | the id map | **yes** — lock-guarded | no |
 | `FunctionRegistry` | the name map | reads yes, **registration no** | no |
 | built-in backends | pools, records | **yes** — lock-guarded | no |

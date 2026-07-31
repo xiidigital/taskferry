@@ -64,6 +64,18 @@ backend declares its real delivery semantics, and
 :attr:`~taskport.specs.ExecutionSpec.idempotency_key` is offered as a tool for
 building idempotency, not as a guarantee. See ADR-0018.
 
+Async
+-----
+
+    from taskport import AsyncTaskport
+
+    runtime = AsyncTaskport.local()
+    handle = await runtime.tasks.submit("myapp.tasks:send_email", 42)
+    execution = await handle.wait(30)
+
+Same method names as the sync runtime — the difference is `await`, not the
+vocabulary. See :mod:`taskport.aio` and ADR-0021.
+
 Everything a normal application needs is importable from here. Deeper modules
 (:mod:`taskport.ports`, :mod:`taskport.contract`, :mod:`taskport.core`) are for
 people writing adapters.
@@ -71,6 +83,7 @@ people writing adapters.
 
 from __future__ import annotations
 
+from .aio import AsyncExecutionHandle, AsyncTaskport
 from .capabilities import Capability, CapabilitySet
 from .config import BackendConfig, TaskportConfig
 from .core.correlation import Correlation, current_correlation, ensure_correlation, use_correlation
@@ -124,6 +137,7 @@ __version__ = "0.2.0"
 __all__ = [  # noqa: RUF022 - deliberately grouped, see above
     # runtime
     "Taskport",
+    "AsyncTaskport",
     "TaskportConfig",
     "BackendConfig",
     "Route",
@@ -139,6 +153,7 @@ __all__ = [  # noqa: RUF022 - deliberately grouped, see above
     # executions
     "Execution",
     "ExecutionHandle",
+    "AsyncExecutionHandle",
     "ExecutionId",
     "ExecutionKind",
     "ExecutionResult",

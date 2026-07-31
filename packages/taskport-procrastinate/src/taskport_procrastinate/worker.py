@@ -51,11 +51,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from taskport.core.correlation import use_correlation
-from taskport.functions import FunctionRegistry, is_async_callable
+from taskport.envelope import execute_envelope
+from taskport.functions import FunctionRegistry
 from taskport.retry import RetryPolicy
 
-from .message import TaskportMessage, build_message, check_version, decode_retry, read_correlation
+from .message import TaskportMessage, build_message, check_version, decode_retry
 
 logger = logging.getLogger("taskport.procrastinate")
 
@@ -73,21 +73,7 @@ def execute_message(
     and reused by any other adapter that carries the same envelope.
     """
     check_version(message)
-    task_name = message.get("task")
-    if not task_name:
-        raise ValueError("taskport message has no 'task'")
-
-    resolver = registry if registry is not None else FunctionRegistry()
-    func = resolver.resolve(task_name)
-    args = list(message.get("args") or [])
-    kwargs = dict(message.get("kwargs") or {})
-
-    with use_correlation(read_correlation(message)):
-        if is_async_callable(func):
-            import asyncio
-
-            return asyncio.run(func(*args, **kwargs))
-        return func(*args, **kwargs)
+    return execute_envelope(message, registry=registry)
 
 
 def register_dispatcher(

@@ -1,0 +1,98 @@
+# taskport-servicebus
+
+Run [Taskport](https://github.com/taskport/taskport) tasks on **Azure Service
+Bus** — pull-based delivery with unrestricted scheduling.
+
+```mermaid
+flowchart LR
+    APP["Application"] --> TP["Taskport"] --> AD["taskport-servicebus"] --> Q["Service Bus queue"] --> C["Azure Functions · Container Apps"]
+```
+
+```bash
+pip install 'taskport-servicebus[azure]'
+```
+
+## Why it is a separate package from SQS
+
+Both are pull-based queues, and they differ where it counts:
+`scheduled_enqueue_time_utc` accepts **any** future time, so a task deferred by a
+week is a first-class operation here and impossible on SQS, which caps at 900
+seconds.
+
+One "queue adapter with a flag" would have to pick a lowest common denominator.
+Two adapters with two honest capability sets do not. See
+[ADR-0014](https://github.com/taskport/taskport/blob/main/docs/adr/0014-backend-capabilities.md).
+
+## Sending
+
+```python
+runtime = Taskport.from_mapping(
+    {
+        "backends": {
+            "sb": {
+                "factory": "servicebus",
+                "connection_string": "Endpoint=sb://...",
+                "queue_name": "tasks",
+            }
+        },
+        "defaults": {"task": "sb"},
+    }
+)
+
+runtime.tasks.submit("myapp.tasks:reindex", 42, delay=timedelta(days=7))
+```
+
+Managed Identity instead of a connection string:
+
+```python
+{
+    "factory": "servicebus",
+    "namespace": "myns.servicebus.windows.net",
+    "credential": DefaultAzureCredential(),
+    "queue_name": "tasks",
+}
+```
+
+## Consuming
+
+**Azure Functions:**
+
+```python
+from taskport import FunctionRegistry
+from taskport_servicebus import process_message
+
+REGISTRY = FunctionRegistry(allowed_modules=["myapp"])
+
+
+def main(msg: func.ServiceBusMessage) -> None:
+    process_message(msg.get_body(), registry=REGISTRY)
+```
+
+**Container Apps / a plain process:**
+
+```python
+from taskport_servicebus import receive_forever
+
+receive_forever(client, "tasks", registry=REGISTRY)
+```
+
+Completes on success, abandons on failure so Service Bus redelivers and
+eventually dead-letters per the queue's `MaxDeliveryCount`.
+
+## Capabilities
+
+| Capability | Supported | How |
+| --- | :---: | --- |
+| `SUBMIT` | yes | `send_messages` |
+| `DELAY` | yes | `scheduled_enqueue_time_utc`, **unbounded** |
+| `RETRY` | yes | the queue's delivery count and dead-letter policy |
+| `DEDUPLICATION` | yes | `message_id`, when the queue has duplicate detection on |
+| `STATE` · `RESULT` · `CANCEL` | **no** | no lookup of one message after enqueue |
+
+`DEDUPLICATION` is real but bounded by the queue's duplicate-detection window —
+a tool for idempotency, never an exactly-once promise. See
+[ADR-0018](https://github.com/taskport/taskport/blob/main/docs/adr/0018-no-exactly-once.md).
+
+## License
+
+Apache-2.0.

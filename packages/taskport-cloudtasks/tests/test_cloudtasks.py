@@ -180,8 +180,16 @@ class TestReceiver:
             parse_request(b"{not json")
 
     def test_a_version_mismatch_is_rejected(self) -> None:
-        with pytest.raises(SerializationError, match="unsupported taskport message version"):
+        with pytest.raises(SerializationError, match="unsupported taskport envelope version"):
             parse_request(json.dumps({"taskport": "99", "task": "m:f"}).encode())
+
+    def test_the_envelope_is_the_shared_one(self) -> None:
+        """A Cloud Tasks body and a Procrastinate job argument are the same shape."""
+        from taskport.envelope import ENVELOPE_VERSION, build_envelope
+
+        assert MESSAGE_VERSION == ENVELOPE_VERSION
+        spec = TaskSpec(task="m:f", args=(1,))
+        assert build_message(spec) == build_envelope(spec)
 
     def test_a_body_without_a_task_is_rejected(self) -> None:
         with pytest.raises(SerializationError, match="no 'task'"):

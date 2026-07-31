@@ -290,15 +290,23 @@ class TestMessage:
 
     def test_an_unknown_version_is_rejected_loudly(self) -> None:
         """A worker on old code must not silently drop fields it does not know."""
-        with pytest.raises(ValueError, match="unsupported taskport message version"):
-            check_version({"taskport": "99"})
+        with pytest.raises(ValueError, match="unsupported taskport envelope version"):
+            check_version({"taskport": "99", "task": "m:f"})
 
     def test_a_non_object_body_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="must be a JSON object"):
             check_version(["not", "an", "object"])
 
     def test_the_current_version_passes(self) -> None:
-        check_version({"taskport": MESSAGE_VERSION})
+        check_version({"taskport": MESSAGE_VERSION, "task": "m:f"})
+
+    def test_the_envelope_is_the_shared_one(self) -> None:
+        """One wire format across every transport, not one per adapter."""
+        from taskport.envelope import ENVELOPE_VERSION, build_envelope
+
+        assert MESSAGE_VERSION == ENVELOPE_VERSION
+        spec = TaskSpec(task="m:f", args=(1,))
+        assert build_message(spec) == build_envelope(spec)
 
     def test_the_retry_policy_round_trips(self) -> None:
         from taskport import Backoff, RetryPolicy

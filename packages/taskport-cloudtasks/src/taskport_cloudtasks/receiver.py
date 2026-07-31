@@ -56,10 +56,11 @@ from collections.abc import Mapping
 from typing import Any
 
 from taskport.core.correlation import Correlation, use_correlation
+from taskport.envelope import read_envelope
 from taskport.errors import SerializationError
 from taskport.functions import FunctionRegistry, is_async_callable
 
-from .backend import MESSAGE_VERSION, CloudTasksMessage
+from .backend import CloudTasksMessage
 
 
 def parse_request(body: bytes | str) -> CloudTasksMessage:
@@ -75,17 +76,7 @@ def parse_request(body: bytes | str) -> CloudTasksMessage:
         payload = json.loads(body)
     except (ValueError, UnicodeDecodeError) as exc:
         raise SerializationError(f"Cloud Tasks body is not valid JSON: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise SerializationError("Cloud Tasks body must be a JSON object")
-    version = payload.get("taskport")
-    if version != MESSAGE_VERSION:
-        raise SerializationError(
-            f"unsupported taskport message version {version!r} "
-            f"(this receiver speaks {MESSAGE_VERSION!r})"
-        )
-    if not payload.get("task"):
-        raise SerializationError("taskport message has no 'task'")
-    return payload  # type: ignore[return-value]
+    return read_envelope(payload)
 
 
 def handle_request(

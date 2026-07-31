@@ -30,6 +30,7 @@ The current design:
 8. [Never promise exactly-once](adr/0018-no-exactly-once.md)
 9. [Exactly one layer retries](adr/0019-retry-ownership.md)
 10. [One distribution per top-level module](adr/0020-packaging-strategy.md)
+11. [A second runtime for async](adr/0021-async-api.md)
 
 Still in force from 0.1:
 

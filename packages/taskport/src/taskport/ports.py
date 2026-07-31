@@ -45,6 +45,7 @@ with four underscore-prefixed methods that only talk to its engine.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from abc import ABC, abstractmethod
 from typing import Protocol, runtime_checkable
@@ -108,6 +109,28 @@ class ExecutionBackend(Protocol):
 
     def wait(self, execution_id: ExecutionId | str, *, timeout: float | None = None) -> Execution:
         """Block until the execution is terminal. Requires ``Capability.STATE``."""
+        ...
+
+    # -- the async surface --------------------------------------------------- #
+    # Every backend has one. :class:`BaseBackend` derives it from the sync
+    # methods with ``asyncio.to_thread``, so an adapter gets a correct — never
+    # loop-blocking — async path for free, and overrides only where its client
+    # is genuinely async. See ADR-0021.
+
+    async def asubmit(self, spec: ExecutionSpec) -> Execution: ...
+
+    async def aget(self, execution_id: ExecutionId | str) -> Execution: ...
+
+    async def acancel(self, execution_id: ExecutionId | str) -> Execution: ...
+
+    async def aresult(
+        self, execution_id: ExecutionId | str, *, timeout: float | None = None
+    ) -> ExecutionResult: ...
+
+    async def await_(
+        self, execution_id: ExecutionId | str, *, timeout: float | None = None
+    ) -> Execution:
+        """Async ``wait``. Trailing underscore because ``await`` is a keyword."""
         ...
 
 
@@ -241,6 +264,41 @@ class BaseBackend(ABC):
         """
         self.capabilities.require(Capability.STATE)
         return self._wait(ExecutionId(str(execution_id)), timeout=timeout)
+
+    # -- the async surface ---------------------------------------------------- #
+    # Derived from the sync methods by default. ``asyncio.to_thread`` runs the
+    # blocking call on a worker thread, so the caller's event loop keeps
+    # spinning — which is the whole point, and is why this is a real async path
+    # rather than a cosmetic ``async def`` around a blocking call.
+    #
+    # An adapter whose client is natively async (aiobotocore, an async
+    # Procrastinate connector) overrides these and skips the thread entirely.
+    # Correctness does not depend on it doing so.
+
+    async def asubmit(self, spec: ExecutionSpec) -> Execution:
+        return await asyncio.to_thread(self.submit, spec)
+
+    async def aget(self, execution_id: ExecutionId | str) -> Execution:
+        return await asyncio.to_thread(self.get, execution_id)
+
+    async def acancel(self, execution_id: ExecutionId | str) -> Execution:
+        return await asyncio.to_thread(self.cancel, execution_id)
+
+    async def aresult(
+        self, execution_id: ExecutionId | str, *, timeout: float | None = None
+    ) -> ExecutionResult:
+        return await asyncio.to_thread(lambda: self.result(execution_id, timeout=timeout))
+
+    async def await_(
+        self, execution_id: ExecutionId | str, *, timeout: float | None = None
+    ) -> Execution:
+        """Async ``wait``. Trailing underscore because ``await`` is a keyword.
+
+        The default polls on a worker thread. A backend whose engine offers a
+        native async notification should override this — holding a thread for
+        the lifetime of a long job is wasteful, even if it is correct.
+        """
+        return await asyncio.to_thread(lambda: self.wait(execution_id, timeout=timeout))
 
     # -- validation --------------------------------------------------------- #
     def validate(self, spec: ExecutionSpec) -> None:

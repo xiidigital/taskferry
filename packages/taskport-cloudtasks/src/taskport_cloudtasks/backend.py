@@ -25,12 +25,12 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from typing import Any, TypedDict
+from typing import Any
 
 from taskport.capabilities import Capability, CapabilitySet
 from taskport.core.correlation import Correlation
 from taskport.core.provider import ProviderMetadata
-from taskport.core.typing import JSONValue
+from taskport.envelope import ENVELOPE_VERSION, Envelope, build_envelope
 from taskport.errors import ConfigurationError, SubmissionError
 from taskport.execution import (
     Execution,
@@ -41,7 +41,8 @@ from taskport.execution import (
 from taskport.ports import BaseBackend
 from taskport.specs import ExecutionSpec, TaskSpec
 
-MESSAGE_VERSION = "2"
+MESSAGE_VERSION = ENVELOPE_VERSION
+"""Alias of the shared envelope version; the format is the core's, not ours."""
 
 CLOUD_TASKS_CAPABILITIES = frozenset(
     {
@@ -53,29 +54,11 @@ CLOUD_TASKS_CAPABILITIES = frozenset(
 )
 
 
-class CloudTasksMessage(TypedDict, total=False):
-    """The JSON body Cloud Tasks POSTs to your service."""
+CloudTasksMessage = Envelope
+"""The JSON body Cloud Tasks POSTs to your service — the shared envelope."""
 
-    taskport: str
-    task: str
-    args: list[JSONValue]
-    kwargs: dict[str, JSONValue]
-    name: str
-    queue: str
-    correlation: dict[str, str] | None
-
-
-def build_message(spec: TaskSpec) -> CloudTasksMessage:
-    """Serialize a spec into the HTTP body the receiver will decode."""
-    return {
-        "taskport": MESSAGE_VERSION,
-        "task": spec.task,
-        "args": list(spec.args),
-        "kwargs": dict(spec.kwargs),
-        "name": spec.name,
-        "queue": spec.queue,
-        "correlation": spec.correlation.to_headers() if spec.correlation else None,
-    }
+build_message = build_envelope
+"""Serialize a spec into the HTTP body the receiver will decode."""
 
 
 class CloudTasksBackend(BaseBackend):
