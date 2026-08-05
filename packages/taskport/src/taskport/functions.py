@@ -78,10 +78,56 @@ class FunctionRef:
     def from_callable(cls, func: Callable[..., Any]) -> FunctionRef:
         """Derive a reference from a callable.
 
-        Rejects lambdas, closures and locals: they have no importable name, so a
-        worker in another process could never find them. Failing here is far
-        kinder than failing on the worker.
+        Rejects anything a worker in another process could not reconstruct:
+        lambdas, closures, locals, ``__main__``, and — less obviously — callables
+        that carry **state**. Failing here is far kinder than failing on a worker.
+
+        The stateful cases are the subtle ones, and they are the shape a library
+        embedding Taskport usually reaches for. A configured object like::
+
+            processor = Processor(factor=3)
+            runtime.tasks.submit(processor.run, 14)
+
+        has a perfectly good importable name — ``mypkg:Processor.run`` — so a
+        naive check accepts it. But only the *name* travels: the worker imports
+        the plain function, ``factor`` is gone, and the call fails with a
+        confusing ``TypeError`` about a missing argument, on the worker, at 3am.
+        The same is true of a callable instance, whose name resolves to its class.
+
+        Both are refused here, pointing at the way through: one importable
+        dispatcher, with the identity as JSON data. That is what
+        ``taskport_django.execute:run_task`` does for Django's Task objects, and
+        it is the pattern any embedder with configured units of work needs.
         """
+        method_self = getattr(func, "__self__", None)
+        if method_self is not None and not isinstance(method_self, type):
+            # A bound method of an *instance*. A classmethod (``__self__`` is the
+            # class) re-binds correctly on import and is deliberately allowed.
+            owner = type(method_self).__name__
+            raise FunctionResolutionError(
+                f"{func!r} is a method bound to a {owner} instance. Only its name would "
+                f"reach the worker, so the instance's state would be lost and the call "
+                f"would fail there rather than here. Submit a module-level function, or "
+                f"route through one importable dispatcher that rebuilds the {owner} from "
+                f"JSON arguments."
+            )
+        if (
+            method_self is None  # a classmethod already passed the check above
+            and not isinstance(func, type)
+            and not inspect.isfunction(func)
+            and not inspect.isbuiltin(func)
+            and callable(func)
+        ):
+            # A callable *instance*: its ``__qualname__`` names the class, so the
+            # worker would import the class and construct a new object with the
+            # task's arguments — silently the wrong thing.
+            raise FunctionResolutionError(
+                f"{func!r} is a callable {type(func).__name__} instance, not a function. "
+                f"Its name resolves to the class, so a worker would construct a new object "
+                f"rather than use this one. Submit a module-level function, or route "
+                f"through one importable dispatcher."
+            )
+
         module = getattr(func, "__module__", None)
         qualname = getattr(func, "__qualname__", None)
         if not module or not qualname:
