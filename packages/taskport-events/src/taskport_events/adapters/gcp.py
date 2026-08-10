@@ -1,7 +1,7 @@
 """PubSubPublisher — publish events to a Google Cloud Pub/Sub topic.
 
 The Google SDK is imported lazily; the publisher client can be injected for
-testing (ADR-0007). Events are serialized as CloudEvents-structured JSON with
+testing (ADR-0008). Events are serialized as CloudEvents-structured JSON with
 portable string attributes for subscription-side filtering.
 """
 

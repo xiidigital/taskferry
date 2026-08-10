@@ -17,7 +17,7 @@
 #     ^-- taskport-events
 #     ^-- taskport-scheduler
 #
-# See docs/architecture/refactor-2026.md and docs/adr/0020-packaging-strategy.md.
+# See docs/architecture/refactor-2026.md and docs/adr/0013-packaging-strategy.md.
 
 [tool.uv.workspace]
 members = ["packages/*"]

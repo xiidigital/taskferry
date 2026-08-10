@@ -126,4 +126,4 @@ Procrastinate message field — so it survives the hop.
 DAG workflows, state machines, sagas, durable execution and replacements for
 Temporal, Airflow, Step Functions or Cloud Workflows are **not** part of Taskport.
 It may integrate with them; it will not reinvent them. See
-[ADR-0012](../adr/0012-not-a-task-queue.md).
+[ADR-0002](../adr/0002-not-a-task-queue.md).

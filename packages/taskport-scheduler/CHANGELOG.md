@@ -12,4 +12,4 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 Contracts, adapters and the registry are otherwise unchanged. Only the import
 path moved, so that `taskport` could ship a public API. See
-[ADR-0020](../../docs/adr/0020-packaging-strategy.md).
+[ADR-0013](../../docs/adr/0013-packaging-strategy.md).

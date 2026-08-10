@@ -1,4 +1,4 @@
-"""Delivery-semantics vocabulary (sections 21-22, ADR-0008).
+"""Delivery-semantics vocabulary (sections 21-22, ADR-0010).
 
 Taskport **never** promises exactly-once. Distributed systems produce
 duplicates; the whole family assumes at-least-once with possible duplicates and
@@ -20,7 +20,7 @@ class DeliveryGuarantee(StrEnum):
     AT_LEAST_ONCE = "at_least_once"
     """Delivered one or more times. Losses impossible, duplicates possible."""
 
-    # Note: EXACTLY_ONCE is intentionally absent. See ADR-0008.
+    # Note: EXACTLY_ONCE is intentionally absent. See ADR-0010.
 
 
 class Ordering(StrEnum):

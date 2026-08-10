@@ -1,4 +1,4 @@
-"""Configuration primitives (sections 14-17, ADR-0006).
+"""Configuration primitives (sections 14-17, ADR-0007).
 
 Principle: platform config / secrets / env flow into *application* settings,
 which are then handed to Taskport. Taskport libraries must **not** reach into

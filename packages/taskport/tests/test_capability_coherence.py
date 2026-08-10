@@ -20,7 +20,7 @@ flowchart BT
     BASE --> SET
 ```
 
-That split is deliberate (ADR-0014), and it only works while three properties
+That split is deliberate (ADR-0005), and it only works while three properties
 hold. None of them was checked before this file existed — they held by luck:
 
 1. **One base**, so `CapabilitySet` and its `require`/`missing` machinery serve

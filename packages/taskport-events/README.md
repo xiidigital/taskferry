@@ -76,7 +76,7 @@ Roadmap: NATS, RabbitMQ.
 
 ## Delivery semantics
 
-At-least-once with possible duplicates (ADR-0008). Consumers must be idempotent.
+At-least-once with possible duplicates (ADR-0010). Consumers must be idempotent.
 
 ## License
 

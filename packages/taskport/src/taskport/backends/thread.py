@@ -41,7 +41,6 @@ from __future__ import annotations
 import contextlib
 import threading
 import time
-import traceback
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
@@ -254,13 +253,7 @@ class ThreadTaskBackend(BaseBackend):
             result = ExecutionResult(value=value)
             state = ExecutionState.SUCCEEDED
         else:
-            result = ExecutionResult(
-                error=str(error) or type(error).__name__,
-                error_type=type(error).__qualname__,
-                traceback="".join(
-                    traceback.format_exception(type(error), error, error.__traceback__)
-                ),
-            )
+            result = ExecutionResult.from_exception(error)
             state = ExecutionState.FAILED
         with self._lock:
             entry = self._entries.get(key)
@@ -294,7 +287,7 @@ class ThreadTaskBackend(BaseBackend):
             entry = self._entries[str(execution_id)]
             result = entry.result
         if result is None:  # cancelled before it ran
-            return ExecutionResult(error="execution was cancelled", error_type="ExecutionCancelled")
+            return ExecutionResult.cancelled()
         return result
 
     def _wait(self, execution_id: ExecutionId, *, timeout: float | None) -> Execution:

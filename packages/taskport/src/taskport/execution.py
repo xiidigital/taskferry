@@ -115,7 +115,7 @@ _ALLOWED: Mapping[ExecutionState, frozenset[ExecutionState]] = MappingProxyType(
             {ExecutionState.UNKNOWN} | _TERMINAL,
         ),
         # An engine-owned retry legitimately moves a failed execution back into
-        # the queue; see ADR-0019 on retry ownership.
+        # the queue; see ADR-0011 on retry ownership.
         ExecutionState.FAILED: frozenset({ExecutionState.QUEUED, ExecutionState.RUNNING}),
         ExecutionState.TIMED_OUT: frozenset({ExecutionState.QUEUED}),
         ExecutionState.SUCCEEDED: frozenset(),
@@ -140,6 +140,27 @@ class ExecutionResult:
     traceback: str | None = None
     exit_code: int | None = None
     logs_uri: str | None = None
+
+    @classmethod
+    def from_exception(cls, exc: BaseException) -> ExecutionResult:
+        """Build a failed result from a raised exception.
+
+        Captures the message, qualified type name and formatted traceback the
+        same way every in-process backend needs, so the construction lives here
+        once instead of being copied into each one.
+        """
+        import traceback as _traceback
+
+        return cls(
+            error=str(exc) or type(exc).__name__,
+            error_type=type(exc).__qualname__,
+            traceback="".join(_traceback.format_exception(type(exc), exc, exc.__traceback__)),
+        )
+
+    @classmethod
+    def cancelled(cls) -> ExecutionResult:
+        """The placeholder result for an execution cancelled before it produced one."""
+        return cls(error="execution was cancelled", error_type="ExecutionCancelled")
 
 
 @dataclass(frozen=True, slots=True)

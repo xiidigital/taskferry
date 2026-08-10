@@ -1,8 +1,8 @@
-# ADR-0017: JSON payloads and named functions; never pickle
+# ADR-0009: JSON payloads and named functions; never pickle
 
 - Status: Accepted
 - Date: 2026-07-26
-- Refines: [ADR-0008](0008-delivery-semantics.md)
+- Refines: [ADR-0010](0010-delivery-semantics.md)
 
 ## Context
 

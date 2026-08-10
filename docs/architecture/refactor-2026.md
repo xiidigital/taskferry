@@ -110,7 +110,7 @@ callers imported from `taskport.core`, `taskport.jobs`, `taskport.django.backend
 `JobSpec.max_retries` was an untyped int forwarded to whichever provider
 happened to read it. There was no `RetryPolicy`, no backoff vocabulary, no
 statement of *which layer owns the retry*, and no idempotency-key API — despite
-ADR-0008 correctly refusing to promise exactly-once.
+ADR-0010 correctly refusing to promise exactly-once.
 
 ### P6 — No function-reference model
 
@@ -326,8 +326,8 @@ moved to `taskport_jobs`, `taskport_events`, `taskport_scheduler` and
 framework-agnostic adapters plus a single Django bridge backend.
 
 See [the migration guide](../migration/0.1-to-0.2.md) for the mechanical steps, and
-[ADR-0011](../adr/0011-portable-execution-layer.md) through
-[ADR-0020](../adr/0020-packaging-strategy.md) for each decision in full.
+[ADR-0001](../adr/0001-portable-execution-layer.md) through
+[ADR-0013](../adr/0013-packaging-strategy.md) for each decision in full.
 
 ### What was removed from the roadmap
 

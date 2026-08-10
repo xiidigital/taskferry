@@ -48,31 +48,33 @@ nav:
       - Security: security.md
   - Migration:
       - 0.1 to 0.2: migration/0.1-to-0.2.md
+  - Engineering:
+      - Coding standards: engineering/coding-standards.md
+      - Testing: engineering/testing.md
+      - Adding an adapter: engineering/adding-an-adapter.md
+      - Release process: engineering/release.md
+      - CI: engineering/ci.md
   - Decisions (ADRs):
-      - Current design:
-          - 0011 · Portable execution layer: adr/0011-portable-execution-layer.md
-          - 0012 · Not a task queue: adr/0012-not-a-task-queue.md
-          - 0013 · Task vs Job: adr/0013-task-vs-job.md
-          - 0014 · Backend capabilities: adr/0014-backend-capabilities.md
-          - 0015 · Framework adapters: adr/0015-framework-adapters.md
-          - 0016 · Configuration architecture: adr/0016-configuration-architecture.md
-          - 0017 · Serialization: adr/0017-serialization.md
-          - 0018 · No exactly-once: adr/0018-no-exactly-once.md
-          - 0019 · Retry ownership: adr/0019-retry-ownership.md
-          - 0020 · Packaging strategy: adr/0020-packaging-strategy.md
-          - 0021 · Async API: adr/0021-async-api.md
-      - Still in force:
-          - 0004 · Core scope: adr/0004-taskport-core-scope.md
+      - Index & history: adr/README.md
+      - Foundations:
+          - 0001 · Portable execution layer: adr/0001-portable-execution-layer.md
+          - 0002 · Not a task queue: adr/0002-not-a-task-queue.md
+          - 0003 · Task and Job: adr/0003-task-and-job.md
+          - 0004 · Core scope: adr/0004-core-scope.md
+      - The model:
           - 0005 · Capability model: adr/0005-capability-model.md
-          - 0006 · Environment config: adr/0006-environment-configuration.md
-          - 0007 · Provider credentials: adr/0007-provider-credentials.md
-          - 0008 · Delivery semantics: adr/0008-delivery-semantics.md
-          - 0009 · Observability: adr/0009-observability.md
-          - 0010 · Monorepo to multi-repo: adr/0010-monorepo-to-multirepo.md
-      - Superseded:
-          - 0001 · Taskport as a family: adr/0001-taskport-family.md
-          - 0002 · Separate concepts: adr/0002-separate-task-job-event-schedule.md
-          - 0003 · Namespace packages: adr/0003-namespace-packages.md
+          - 0006 · Framework adapters: adr/0006-framework-adapters.md
+          - 0007 · Configuration: adr/0007-configuration.md
+          - 0008 · Provider credentials: adr/0008-provider-credentials.md
+      - Semantics:
+          - 0009 · Serialization: adr/0009-serialization.md
+          - 0010 · Delivery semantics: adr/0010-delivery-semantics.md
+          - 0011 · Retry ownership: adr/0011-retry-ownership.md
+          - 0012 · Observability: adr/0012-observability.md
+      - Packaging & delivery:
+          - 0013 · Packaging strategy: adr/0013-packaging-strategy.md
+          - 0014 · Monorepo to multi-repo: adr/0014-monorepo-to-multirepo.md
+          - 0015 · Async API: adr/0015-async-api.md
   - Adjacent concerns:
       - Task vs Job vs Event vs Schedule: family/concepts.md
       - Composition: family/composition.md

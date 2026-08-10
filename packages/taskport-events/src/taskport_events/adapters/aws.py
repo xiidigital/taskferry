@@ -1,6 +1,6 @@
 """AWS event publishers: SNS (fan-out topics) and EventBridge (event bus).
 
-Both use the default boto3 credential chain (ADR-0007); the client is imported
+Both use the default boto3 credential chain (ADR-0008); the client is imported
 lazily and can be injected for testing. Event data is serialized as
 CloudEvents-structured JSON with portable string attributes.
 """

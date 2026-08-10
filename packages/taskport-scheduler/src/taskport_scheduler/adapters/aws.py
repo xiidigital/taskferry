@@ -2,7 +2,7 @@
 
 EventBridge Scheduler fires at cron/rate/one-time expressions and targets AWS
 resources by ARN (not arbitrary HTTP), so the target ARN + execution role come
-from ``provider_options["aws"]`` — the provider-specific escape hatch (ADR-0006).
+from ``provider_options["aws"]`` — the provider-specific escape hatch (ADR-0007).
 The boto3 client is imported lazily and injectable for testing.
 """
 

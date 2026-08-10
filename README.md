@@ -67,7 +67,7 @@ well. Taskport makes them interchangeable.
 
 Every feature proposal gets asked one question: *does this belong to an execution
 portability layer, or am I rebuilding something the engine already does?* If it is
-the second, it gets delegated. See [ADR-0012](docs/adr/0012-not-a-task-queue.md).
+the second, it gets delegated. See [ADR-0002](docs/adr/0002-not-a-task-queue.md).
 
 ## Three primitives
 
@@ -100,7 +100,7 @@ flowchart TD
 A Job is **not** "a Task that takes longer". It has its own image, its own CPU and
 memory, its own lifecycle, and it returns an exit code rather than a Python value.
 Collapsing the two would force every task engine to grow container semantics it
-does not have. See [ADR-0013](docs/adr/0013-task-vs-job.md).
+does not have. See [ADR-0003](docs/adr/0003-task-and-job.md).
 
 ```python
 runtime.inline.submit(add, 20, 22)  # now, here
@@ -173,7 +173,7 @@ runtime.jobs.submit("train", resources=Resources(gpu=1), profile="cloudrun")
 
 The blanks are the point, and they are
 [asserted in tests](packages/taskport-jobs/tests/test_jobs.py), not just written
-down. See [ADR-0014](docs/adr/0014-backend-capabilities.md).
+down. See [ADR-0005](docs/adr/0005-capability-model.md).
 
 ## Executions
 
@@ -235,7 +235,7 @@ The async path is real, not an `async def` painted over a blocking call — two
 tests hold that honest by counting event-loop ticks during a slow job and by
 requiring four 0.2s jobs to finish in ~0.2s. See
 [docs/concurrency.md](docs/concurrency.md) and
-[ADR-0021](docs/adr/0021-async-api.md).
+[ADR-0015](docs/adr/0015-async-api.md).
 
 ## Guarantees, stated plainly
 
@@ -243,7 +243,7 @@ Taskport promises **at-least-once or at-most-once, depending on the backend**. I
 never promises exactly-once, because no distributed system can honestly offer it.
 `idempotency_key` is a tool for building idempotency where the backend supports
 real deduplication — not a guarantee. See
-[ADR-0018](docs/adr/0018-no-exactly-once.md).
+[ADR-0010](docs/adr/0010-delivery-semantics.md).
 
 Retries have exactly one owner, recorded on the policy, so five attempts never
 become several hundred:
@@ -254,7 +254,7 @@ RetryPolicy(max_attempts=5, backoff=Backoff.EXPONENTIAL, owner=RetryOwner.BACKEN
 
 **Taskport itself never retries.** It translates the intent into the engine's own
 retry configuration and gets out of the way. See
-[ADR-0019](docs/adr/0019-retry-ownership.md).
+[ADR-0011](docs/adr/0011-retry-ownership.md).
 
 ## The distributions
 
@@ -303,7 +303,7 @@ flowchart BT
 
 Adapters register themselves through the `taskport.backends` entry-point group, so
 naming one in configuration is all it takes — Taskport never imports an adapter it
-was not asked for. See [ADR-0020](docs/adr/0020-packaging-strategy.md).
+was not asked for. See [ADR-0013](docs/adr/0013-packaging-strategy.md).
 
 ## Django
 

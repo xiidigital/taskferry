@@ -32,7 +32,6 @@ explanation rather than letting the pool fail cryptically.
 from __future__ import annotations
 
 import threading
-import traceback
 from concurrent.futures import Future, ProcessPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
@@ -198,13 +197,7 @@ class ProcessTaskBackend(BaseBackend):
             result = ExecutionResult(value=future.result())
             state = ExecutionState.SUCCEEDED
         else:
-            result = ExecutionResult(
-                error=str(error) or type(error).__name__,
-                error_type=type(error).__qualname__,
-                traceback="".join(
-                    traceback.format_exception(type(error), error, error.__traceback__)
-                ),
-            )
+            result = ExecutionResult.from_exception(error)
             state = ExecutionState.FAILED
         with self._lock:
             entry = self._entries.get(key)
@@ -266,7 +259,7 @@ class ProcessTaskBackend(BaseBackend):
         self._wait(execution_id, timeout=timeout)
         result = self._entry(execution_id).result
         if result is None:
-            return ExecutionResult(error="execution was cancelled", error_type="ExecutionCancelled")
+            return ExecutionResult.cancelled()
         return result
 
     def _cancel(self, execution_id: ExecutionId) -> Execution:

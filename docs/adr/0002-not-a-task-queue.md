@@ -1,4 +1,4 @@
-# ADR-0012: Taskport does not implement a task queue
+# ADR-0002: Taskport does not implement a task queue
 
 - Status: Accepted
 - Date: 2026-07-26

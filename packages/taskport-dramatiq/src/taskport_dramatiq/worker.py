@@ -22,7 +22,7 @@ of the deployment rather than part of the code.
 
 Retries are **Dramatiq's**. ``build_dispatch_actor(max_retries=3)`` configures
 the actor and Dramatiq applies its own exponential backoff with jitter; Taskport
-does not loop in the worker pretending to retry. See ADR-0019.
+does not loop in the worker pretending to retry. See ADR-0011.
 
 Security: the actor resolves a task *name* that arrived from the broker. Pass a
 :class:`~taskport.functions.FunctionRegistry` with an allowlist when anything

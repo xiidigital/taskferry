@@ -1,4 +1,4 @@
-# ADR-0009: OpenTelemetry-shaped hooks, but OTel is optional
+# ADR-0012: OpenTelemetry-shaped hooks, but OTel is optional
 
 - Status: Accepted
 - Date: 2026-07-24

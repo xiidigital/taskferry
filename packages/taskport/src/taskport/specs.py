@@ -102,7 +102,7 @@ class ExecutionSpec:
         idempotency_key: Caller-supplied deduplication key. Backends advertising
             ``DEDUPLICATION`` collapse duplicate submissions carrying the same
             key. Taskport makes **no** exactly-once promise; this is a tool for
-            building idempotency, not a guarantee. See ADR-0018.
+            building idempotency, not a guarantee. See ADR-0010.
         correlation: Correlation to propagate. Defaults to the ambient one at
             submit time when left unset.
         labels: Arbitrary metadata forwarded to the engine where supported.

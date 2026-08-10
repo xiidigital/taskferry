@@ -1,8 +1,8 @@
-# ADR-0020: One distribution per top-level module
+# ADR-0013: One distribution per top-level module
 
 - Status: Accepted
 - Date: 2026-07-26
-- Supersedes: [ADR-0003](0003-namespace-packages.md)
+- History: replaces the 0.1 PEP 420 namespace-package approach (former ADR-0003)
 
 ## Context
 
@@ -73,4 +73,4 @@ between the two, with the disadvantages of both. Rejected.
 - `taskport_*` is slightly less elegant than `taskport.*`. Accepted: a public API
   that exists beats a namespace that reads nicely.
 - Each package remains independently buildable and extractable to its own
-  repository, which [ADR-0010](0010-monorepo-to-multirepo.md) still describes.
+  repository, which [ADR-0014](0014-monorepo-to-multirepo.md) still describes.

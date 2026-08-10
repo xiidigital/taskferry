@@ -3,7 +3,7 @@
     uv run python tooling/build_all.py
 
 Each package is built independently (as it would be in its own repo), proving the
-distributions are separable (ADR-0010). Nothing is uploaded.
+distributions are separable (ADR-0014). Nothing is uploaded.
 """
 
 from __future__ import annotations

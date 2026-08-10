@@ -48,7 +48,6 @@ import asyncio
 import concurrent.futures
 import contextlib
 import time
-import traceback
 from collections.abc import Coroutine
 from datetime import UTC, datetime
 from typing import Any
@@ -134,13 +133,7 @@ class InlineExecutionBackend(BaseBackend):
             result = ExecutionResult(value=value)
             state = ExecutionState.SUCCEEDED
         else:
-            result = ExecutionResult(
-                error=str(error) or type(error).__name__,
-                error_type=type(error).__qualname__,
-                traceback="".join(
-                    traceback.format_exception(type(error), error, error.__traceback__)
-                ),
-            )
+            result = ExecutionResult.from_exception(error)
             state = ExecutionState.FAILED
 
         execution = base.evolve(

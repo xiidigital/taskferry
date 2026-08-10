@@ -1,49 +1,61 @@
-# ADR-0005: Honest capability model, no lying abstractions
+# ADR-0005: Capabilities, not method presence, define what a backend supports
 
 - Status: Accepted
-- Date: 2026-07-24
+- Date: 2026-07-26
+- History: absorbs former ADR-0005 (the first capability model)
 
 ## Context
 
-Providers do not support the same features. Cloud Tasks supports scheduled
-delivery and per-task delay; a naive Redis worker may not. AWS Batch supports GPU
-and CPU/memory overrides; a local subprocess does not. A portable API that
-silently ignores unsupported options — or pretends to honor them — is dangerous.
+Backends differ in ways that matter. Procrastinate can cancel a queued job and
+report its state; Cloud Tasks can do neither. AWS Batch allocates GPUs per
+submission; Cloud Run cannot. A portability layer has three options: expose the
+lowest common denominator, silently emulate what is missing, or be honest.
+
+0.1 chose honesty but expressed it per-domain: `JobCapability.CANCEL`,
+`TaskCapability.CANCELLATION` and `ScheduleCapability.PAUSE` were unrelated types,
+so a router or a CLI could not ask "can this backend cancel?" across kinds.
 
 ## Decision
 
-Every domain defines a capability enum (subclass of `taskport.core.Capability`,
-a `StrEnum`). Every provider exposes an immutable
-`taskport.core.CapabilitySet` via a `capabilities` property.
+One `Capability` enum, shared by every execution kind. Every backend advertises an
+immutable `CapabilitySet`, and **that set is the single source of truth** — not
+whether a method happens to exist.
 
-Callers choose their style:
+Concretely:
 
-- **Feature detection:** `if TaskCapability.DELAY in backend.capabilities: ...`
-- **Assertion:** `backend.capabilities.require(TaskCapability.DELAY)` raises
-  `UnsupportedCapabilityError` (a `TaskportError`) naming the capability and
-  provider.
+- every backend implements the full `submit` / `get` / `cancel` / `result` surface;
+- calling an operation whose capability is not advertised raises
+  `UnsupportedCapability`, never a no-op and never an emulation;
+- a spec declares what it needs via `required_capabilities()`, and `BaseBackend`
+  checks it **before** submitting.
 
-When an operation requires a capability the provider lacks, the adapter **must**
-either fail loudly with `UnsupportedCapabilityError` or (where a caller opted in
-via feature detection) degrade explicitly and visibly. It must **never** silently
-drop or fake the option.
+```python
+runtime.jobs.submit("train", resources=Resources(gpu=1), profile="cloudrun")
+# UnsupportedCapability: 'gpu' (provider='cloudrun')
+```
 
-Capability vocabularies (initial):
+## Alternatives considered
 
-- **Task:** priority, delay, scheduled_execution, result_tracking, cancellation,
-  queue_selection, retries, dead_letter, ordering, async_enqueue. These map
-  directly onto Django 6's backend feature flags (`supports_defer`,
-  `supports_async_task`, `supports_get_result`, `supports_priority`).
-- **Job:** status, cancel, logs, timeout, parallelism, cpu_override,
-  memory_override, gpu, environment_override.
-- **Event:** fanout, ordering, delivery_retry, dead_letter, filtering, replay,
-  retention.
-- **Schedule:** one_shot, cron, timezone, pause, resume, update, delete.
+**Duck typing — "does the backend have a `.cancel` method?"** Cannot express "can
+cancel a queued task but not a running one", cannot be inspected without
+instantiating the backend (which may need credentials), and cannot be reported by
+`taskport capabilities`. Rejected.
+
+**Optional protocols (`SupportsCancel`, `SupportsResult`).** Types the presence of
+methods correctly, but leaves the runtime doing `isinstance` checks against a
+growing family of protocols, and still cannot express partial support. Rejected in
+favour of one authoritative set.
+
+**Emulate missing capabilities.** An emulated cancel that leaves work running, or
+an emulated timeout that does not stop anything, is a correctness bug that only
+appears under load in production. Emphatically rejected.
 
 ## Consequences
 
-- Portable code can be written defensively and predictably.
-- Adapters are self-describing; contract tests (section 37) use the capability
-  set to decide which assertions are mandatory for a given provider.
-- The vocabulary is additive: new capabilities are new enum members, not
-  breaking changes.
+- A capability difference is a loud, immediate, testable failure at submit time.
+- The reusable contract suites are capability-driven: a backend that does not
+  advertise `CANCEL` is asserted to *reject* cancellation, not skipped.
+- Applications that want to be portable across a capability difference must
+  feature-detect: `if Capability.CANCEL in handle.capabilities`.
+- Some correct-looking code will start raising when a queue is moved to a weaker
+  engine. That is the design working: the alternative is it silently doing less.

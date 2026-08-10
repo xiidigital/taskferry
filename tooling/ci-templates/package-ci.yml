@@ -1,5 +1,5 @@
 # Portable CI for a single Taskport package AFTER extraction to its own repo
-# (ADR-0010). Copy to `.github/workflows/ci.yml` in the standalone repo. Inside
+# (ADR-0014). Copy to `.github/workflows/ci.yml` in the standalone repo. Inside
 # the monorepo the root `.github/workflows/ci.yml` covers everything; this is the
 # template the extracted repo uses instead.
 

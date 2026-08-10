@@ -1,4 +1,4 @@
-"""JSON-only serialization for Taskport payloads (section 23, ADR-0008).
+"""JSON-only serialization for Taskport payloads (section 23, ADR-0010).
 
 Rules Taskport enforces so payloads stay portable and safe:
 

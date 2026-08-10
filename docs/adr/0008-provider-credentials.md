@@ -1,4 +1,4 @@
-# ADR-0007: Use provider-native credential chains, invent nothing
+# ADR-0008: Use provider-native credential chains, invent nothing
 
 - Status: Accepted
 - Date: 2026-07-24

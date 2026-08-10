@@ -1,10 +1,10 @@
 """Portable event domain types (CloudEvents-inspired).
 
 An *Event* is a statement that something happened, with **zero or more**
-consumers — distinct from a Task, which is one operation to run (ADR-0002,
+consumers — distinct from a Task, which is one operation to run (ADR-0003,
 sections 11, 41). The shape follows the CloudEvents attributes (``id``, ``type``,
 ``source``, ``subject``, ``time``, ``data``) so events interoperate with the
-broader ecosystem. Data is JSON only (ADR-0008).
+broader ecosystem. Data is JSON only (ADR-0010).
 """
 
 from __future__ import annotations

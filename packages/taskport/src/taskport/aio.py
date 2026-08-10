@@ -27,7 +27,7 @@ rather than an `asubmit`/`aget`/`acancel` prefix soup bolted onto the first:
 The adapter-facing port keeps the `a`-prefixed names (`asubmit`, `aget`,
 `acancel`, `aresult`, `await_`), because there the two surfaces sit on **one**
 object and have to be told apart. Adapter authors read those; application
-developers do not. See ADR-0021.
+developers do not. See ADR-0015.
 
 ```mermaid
 flowchart TD
