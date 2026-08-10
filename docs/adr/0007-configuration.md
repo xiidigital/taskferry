@@ -1,8 +1,8 @@
-# ADR-0016: Typed configuration, many sources, one model
+# ADR-0007: Typed configuration, many sources, one model
 
 - Status: Accepted
 - Date: 2026-07-26
-- Refines: [ADR-0006](0006-environment-configuration.md)
+- History: absorbs former ADR-0006 (configuration flows in, not out)
 
 ## Context
 

@@ -15,7 +15,7 @@ itself is configured with.
 configured history window. The capability is advertised because the mechanism
 exists and the adapter uses it; the window is the queue's setting, and the
 docstring says so rather than implying a guarantee. Taskport never promises
-exactly-once — see [ADR-0018](../../../docs/adr/0018-no-exactly-once.md).
+exactly-once — see [ADR-0010](../../../docs/adr/0010-delivery-semantics.md).
 
 Not advertised: ``STATE``, ``RESULT``, ``CANCEL``. Service Bus offers no lookup of
 one message by id after it is enqueued.

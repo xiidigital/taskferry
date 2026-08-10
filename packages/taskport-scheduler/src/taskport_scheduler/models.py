@@ -33,7 +33,7 @@ class Schedule:
         enabled: Whether it starts active.
         description: Optional human description.
         labels: Provider labels.
-        provider_options: Provider-specific escape hatch (ADR-0006).
+        provider_options: Provider-specific escape hatch (ADR-0007).
     """
 
     name: str

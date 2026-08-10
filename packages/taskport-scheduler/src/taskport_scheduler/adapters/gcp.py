@@ -2,7 +2,7 @@
 
 Cloud Scheduler is cron-only with timezone support (no interval/one-shot), which
 the capability set states honestly. The Google SDK is imported lazily and the
-client can be injected for testing (ADR-0007).
+client can be injected for testing (ADR-0008).
 """
 
 from __future__ import annotations

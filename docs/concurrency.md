@@ -23,7 +23,7 @@ execution = await handle.wait(30)
 ```
 
 Same method names on both. Porting a module between them is adding or removing
-`await`, not rewriting call sites. See ADR-0021 for why that beats an
+`await`, not rewriting call sites. See ADR-0015 for why that beats an
 `asubmit`/`aget` prefix on one class — in short, `await` is a keyword, so a
 prefixed `wait` has nowhere to go, and `httpx.Client`/`httpx.AsyncClient` is the
 convention Python has settled on.
@@ -224,7 +224,7 @@ path is then safe to share freely.
 Only a function **name** and **JSON arguments**. Never a callable, never a live
 object, never a pickle. That is what makes a payload readable in `psql`, safe to
 unpickle-never, and survivable across a Python upgrade — see
-[ADR-0017](adr/0017-serialization.md).
+[ADR-0009](adr/0009-serialization.md).
 
 `ProcessTaskBackend` exists largely to make you feel this constraint during
 development rather than in production: it dispatches to a real second interpreter,

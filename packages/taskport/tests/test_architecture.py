@@ -270,7 +270,7 @@ class TestAdapterDependencyGraph:
 
         ``taskport`` ships ``__init__.py``, so it is a regular package. Another
         distribution dropping files into it would break under editable installs
-        and is forbidden by PEP 420 anyway. See ADR-0020.
+        and is forbidden by PEP 420 anyway. See ADR-0013.
         """
         src = PACKAGES_DIR / dist / "src"
         assert not (src / "taskport").exists(), (

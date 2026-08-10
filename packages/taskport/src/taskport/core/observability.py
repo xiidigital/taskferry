@@ -1,4 +1,4 @@
-"""Observability hooks — designed in from v1, mandatory on no one (ADR-0009).
+"""Observability hooks — designed in from v1, mandatory on no one (ADR-0012).
 
 Taskport propagates trace context and correlation and emits spans at consistent
 points, but it does **not** depend on the OpenTelemetry SDK. Out of the box a

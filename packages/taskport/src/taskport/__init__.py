@@ -62,7 +62,7 @@ Taskport promises **at-least-once or at-most-once, depending on the backend**,
 and never exactly-once — no distributed system can honestly offer that. Every
 backend declares its real delivery semantics, and
 :attr:`~taskport.specs.ExecutionSpec.idempotency_key` is offered as a tool for
-building idempotency, not as a guarantee. See ADR-0018.
+building idempotency, not as a guarantee. See ADR-0010.
 
 Async
 -----
@@ -74,7 +74,7 @@ Async
     execution = await handle.wait(30)
 
 Same method names as the sync runtime — the difference is `await`, not the
-vocabulary. See :mod:`taskport.aio` and ADR-0021.
+vocabulary. See :mod:`taskport.aio` and ADR-0015.
 
 Everything a normal application needs is importable from here. Deeper modules
 (:mod:`taskport.ports`, :mod:`taskport.contract`, :mod:`taskport.core`) are for

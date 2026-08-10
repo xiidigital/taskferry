@@ -1,4 +1,4 @@
-"""OpenTelemetry bridge (ADR-0009).
+"""OpenTelemetry bridge (ADR-0012).
 
 Installing the ``otel`` extra and calling :func:`configure_opentelemetry` swaps
 the process-wide :class:`~taskport.core.observability.NoopTracer` for one backed

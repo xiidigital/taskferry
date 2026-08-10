@@ -2,7 +2,7 @@
 
 A CronJob runs a container on a cron schedule, so the container to run (image,
 command, env) comes from ``provider_options["kubernetes"]`` — the escape hatch
-(ADR-0006). Only cron triggers apply. Pause/resume map to ``spec.suspend``. The
+(ADR-0007). Only cron triggers apply. Pause/resume map to ``spec.suspend``. The
 BatchV1 API client is imported lazily and injectable for testing.
 """
 

@@ -1,8 +1,8 @@
-# ADR-0011: Taskport is a portable execution layer
+# ADR-0001: Taskport is a portable execution layer
 
 - Status: Accepted
 - Date: 2026-07-26
-- Supersedes: the framing in [ADR-0001](0001-taskport-family.md)
+- History: replaces the 0.1 "family of packages" framing (former ADR-0001)
 
 ## Context
 
@@ -64,7 +64,7 @@ deployments (Cloud Run jobs, CLI pipelines) have no web framework in the process
 at all.
 
 **Build one universal abstraction over "deferred work" covering tasks and jobs.**
-Rejected for the reasons in [ADR-0013](0013-task-vs-job.md).
+Rejected for the reasons in [ADR-0003](0003-task-and-job.md).
 
 ## Consequences
 

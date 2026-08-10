@@ -18,7 +18,7 @@ scheduler for.
 
 That single difference is why the two adapters are separate packages with
 different capability sets rather than one "queue adapter" with a flag. See
-[ADR-0014](../../../docs/adr/0014-backend-capabilities.md).
+[ADR-0005](../../../docs/adr/0005-capability-model.md).
 
 **Sending**::
 

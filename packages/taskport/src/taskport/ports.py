@@ -36,7 +36,7 @@ the backend, and cannot be reported by a CLI. So every backend implements the
 full four-method surface, and :class:`~taskport.capabilities.CapabilitySet` is
 the single source of truth. Calling an unsupported operation raises
 :class:`~taskport.errors.UnsupportedCapability` — never a silent no-op and never
-an emulation. See ADR-0014.
+an emulation. See ADR-0005.
 
 Adapters normally subclass :class:`BaseBackend`, which applies the capability
 checks, the spec validation and the hook dispatch uniformly, leaving the adapter
@@ -115,7 +115,7 @@ class ExecutionBackend(Protocol):
     # Every backend has one. :class:`BaseBackend` derives it from the sync
     # methods with ``asyncio.to_thread``, so an adapter gets a correct — never
     # loop-blocking — async path for free, and overrides only where its client
-    # is genuinely async. See ADR-0021.
+    # is genuinely async. See ADR-0015.
 
     async def asubmit(self, spec: ExecutionSpec) -> Execution: ...
 

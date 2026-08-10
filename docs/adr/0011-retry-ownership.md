@@ -1,4 +1,4 @@
-# ADR-0019: Exactly one layer retries, and it is written down
+# ADR-0011: Exactly one layer retries, and it is written down
 
 - Status: Accepted
 - Date: 2026-07-26

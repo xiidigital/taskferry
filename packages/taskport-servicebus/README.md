@@ -21,7 +21,7 @@ seconds.
 
 One "queue adapter with a flag" would have to pick a lowest common denominator.
 Two adapters with two honest capability sets do not. See
-[ADR-0014](https://github.com/taskport/taskport/blob/main/docs/adr/0014-backend-capabilities.md).
+[ADR-0005](https://github.com/taskport/taskport/blob/main/docs/adr/0005-capability-model.md).
 
 ## Sending
 
@@ -91,7 +91,7 @@ eventually dead-letters per the queue's `MaxDeliveryCount`.
 
 `DEDUPLICATION` is real but bounded by the queue's duplicate-detection window —
 a tool for idempotency, never an exactly-once promise. See
-[ADR-0018](https://github.com/taskport/taskport/blob/main/docs/adr/0018-no-exactly-once.md).
+[ADR-0010](https://github.com/taskport/taskport/blob/main/docs/adr/0010-delivery-semantics.md).
 
 ## License
 

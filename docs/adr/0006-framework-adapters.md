@@ -1,4 +1,4 @@
-# ADR-0015: Frameworks are adapters, and they point inward
+# ADR-0006: Frameworks are adapters, and they point inward
 
 - Status: Accepted
 - Date: 2026-07-26
@@ -57,7 +57,7 @@ API in a framework that has one is a migration burden with no benefit.
 **Have `taskport` read a config file itself, so Django needs no adapter.** Then
 Taskport owns a file format and a discovery order, and Django users configure
 their app in two places. Rejected in favour of
-[ADR-0016](0016-configuration-architecture.md).
+[ADR-0007](0007-configuration.md).
 
 ## Consequences
 

@@ -68,4 +68,4 @@ PostgreSQL or Redis queue, worker daemons, task reservation, heartbeats, worker
 registries, distributed locks, broker protocols, queue polling, a scheduler
 daemon, or a DAG/saga/durable-workflow runtime.
 
-This is not a "not yet" list. See [ADR-0012](../adr/0012-not-a-task-queue.md).
+This is not a "not yet" list. See [ADR-0002](../adr/0002-not-a-task-queue.md).

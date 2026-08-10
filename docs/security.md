@@ -63,7 +63,7 @@ is the wrong choice for a queue that anything untrusted can write to.
 Because unpickling attacker-controlled bytes is arbitrary code execution with no
 allowlist available at all, and because a pickled payload ties the producer and
 consumer to one interpreter version. Taskport never pickles. See
-[ADR-0017](adr/0017-serialization.md).
+[ADR-0009](adr/0009-serialization.md).
 
 ## 2. Push endpoints are yours to authenticate
 
@@ -129,7 +129,7 @@ Taskport never handles credentials. Every adapter uses its provider's own defaul
 credential chain — Application Default Credentials on GCP, the boto3 chain on AWS,
 `DefaultAzureCredential` on Azure, in-cluster ServiceAccount on Kubernetes. There
 is no Taskport setting for a secret key, and there should never be one. See
-[ADR-0007](adr/0007-provider-credentials.md).
+[ADR-0008](adr/0008-provider-credentials.md).
 
 Provider clients are injectable, which is how the test suite runs with no accounts
 and no credentials anywhere.

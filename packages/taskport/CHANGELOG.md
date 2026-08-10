@@ -7,7 +7,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.2.0] — 2026-07-26
 
 The distribution formerly published as `taskport-core`, reframed as the portable
-execution layer itself. See [ADR-0011](../../docs/adr/0011-portable-execution-layer.md)
+execution layer itself. See [ADR-0001](../../docs/adr/0001-portable-execution-layer.md)
 and the [migration guide](../../docs/migration/0.1-to-0.2.md).
 
 ### Added
@@ -27,7 +27,7 @@ and the [migration guide](../../docs/migration/0.1-to-0.2.md).
 - **A single `Capability` enum** shared across kinds, replacing the per-domain
   enums that could not be compared.
 - **`RetryPolicy` / `TimeoutPolicy`** with explicit `RetryOwner`, so exactly one
-  layer retries. See [ADR-0019](../../docs/adr/0019-retry-ownership.md).
+  layer retries. See [ADR-0011](../../docs/adr/0011-retry-ownership.md).
 - **`FunctionRef` / `FunctionRegistry`** — the portable
   `package.module:function` reference, with an import allowlist for untrusted
   queues.

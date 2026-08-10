@@ -1,4 +1,4 @@
-# ADR-0010: Monorepo now, clean multi-repo extraction later
+# ADR-0014: Monorepo now, clean multi-repo extraction later
 
 - Status: Accepted
 - Date: 2026-07-24

@@ -35,7 +35,7 @@ Two rules
 **JSON only, never pickle.** A payload sits in a PostgreSQL table or an SQS queue
 where an operator can read it, survives a Python upgrade, and cannot become
 arbitrary code execution on the way back in. See
-[ADR-0017](../../../docs/adr/0017-serialization.md).
+[ADR-0009](../../../docs/adr/0009-serialization.md).
 
 **Version it, and reject what you do not know.** A worker running old code must
 not silently drop a field a newer producer added. :func:`read_envelope` refuses

@@ -1,4 +1,4 @@
-# ADR-0021: A second runtime for async, with the same method names
+# ADR-0015: A second runtime for async, with the same method names
 
 - Status: Accepted
 - Date: 2026-07-27

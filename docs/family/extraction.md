@@ -1,6 +1,6 @@
 # Extracting a package to its own repository
 
-This is the runnable companion to [ADR-0010](../adr/0010-monorepo-to-multirepo.md).
+This is the runnable companion to [ADR-0014](../adr/0014-monorepo-to-multirepo.md).
 **Nothing here is executed during the current phase** — no repos are created and
 nothing is published. This documents the procedure and the dry-run tooling.
 
@@ -39,7 +39,7 @@ git tag taskport-jobs-v0.1.0 && git push --tags
 - `uv build` produces a valid wheel + sdist.
 - `pip install dist/*.whl` in a clean venv, then `import taskport_jobs` works.
 - `pytest` passes against the installed package.
-- No `taskport/__init__.py` was introduced (would break the namespace, ADR-0003).
+- No `taskport/__init__.py` was introduced (would break the namespace, ADR-0013).
 
 ## Manual actions the maintainer must perform (require authorization)
 

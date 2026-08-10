@@ -6,7 +6,7 @@ engine. It is just metadata that adapters propagate.
 
 The ``trace_context`` mapping carries W3C Trace Context (``traceparent`` /
 ``tracestate``) so distributed tracing works even without the OpenTelemetry SDK
-installed (ADR-0009). Taskport only moves the strings around.
+installed (ADR-0012). Taskport only moves the strings around.
 """
 
 from __future__ import annotations

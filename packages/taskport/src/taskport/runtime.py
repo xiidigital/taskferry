@@ -242,7 +242,7 @@ class Taskport:
                 or a deliberate one-off; application code should route.
             idempotency_key: Convenience for ``spec.evolve(idempotency_key=...)``.
                 Requires the target backend to advertise ``DEDUPLICATION``, and
-                is **not** an exactly-once promise — see ADR-0018.
+                is **not** an exactly-once promise — see ADR-0010.
 
         Raises:
             RoutingError: no backend matched and the kind has no default.

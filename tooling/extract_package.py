@@ -1,4 +1,4 @@
-"""Dry-run helper for extracting a package to its own repository (ADR-0010).
+"""Dry-run helper for extracting a package to its own repository (ADR-0014).
 
     uv run python tooling/extract_package.py taskport-jobs --dry-run
 
@@ -26,7 +26,7 @@ def check_self_contained(package_dir: Path) -> list[str]:
         problems.append("missing src/ directory")
     if not (package_dir / "tests").is_dir():
         problems.append("missing tests/ directory")
-    # A taskport/__init__.py would shadow the namespace (ADR-0003).
+    # A taskport/__init__.py would shadow the namespace (ADR-0013).
     if (package_dir / "src" / "taskport" / "__init__.py").exists():
         problems.append("src/taskport/__init__.py present — breaks the namespace")
     return problems

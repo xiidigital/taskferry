@@ -16,37 +16,53 @@ for the tour. This directory holds the detail.
   authentication, subprocess isolation, payload contents.
 - [Migration 0.1 → 0.2](migration/0.1-to-0.2.md) — every renamed symbol.
 
+## Engineering (how it is built)
+
+- [Coding standards](engineering/coding-standards.md) — what tooling enforces and
+  the conventions it can't.
+- [Testing](engineering/testing.md) — the contract suites, architecture tests, and
+  testing adapters without the cloud.
+- [Adding an adapter](engineering/adding-an-adapter.md) — the recipe for a new
+  backend, end to end.
+- [Release process](engineering/release.md) — per-distribution SemVer and Trusted
+  Publishing.
+- [CI](engineering/ci.md) — the four gates and how they map to the invariants.
+
+See also [`CONTRIBUTING.md`](https://github.com/taskport/taskport/blob/main/CONTRIBUTING.md)
+at the repository root for setup.
+
 ## Decisions (ADRs)
 
-The current design:
+One consolidated, in-order sequence. Superseded 0.1 decisions were folded into the
+ADR that replaced them; the old numbers map forward in
+[the ADR index](adr/README.md).
 
-1. [Taskport is a portable execution layer](adr/0011-portable-execution-layer.md)
-2. [Taskport does not implement a task queue](adr/0012-not-a-task-queue.md)
-3. [Task and Job are separate primitives](adr/0013-task-vs-job.md)
-4. [Capabilities define support, not method presence](adr/0014-backend-capabilities.md)
-5. [Frameworks are adapters, pointing inward](adr/0015-framework-adapters.md)
-6. [Typed configuration, many sources, one model](adr/0016-configuration-architecture.md)
-7. [JSON payloads and named functions; never pickle](adr/0017-serialization.md)
-8. [Never promise exactly-once](adr/0018-no-exactly-once.md)
-9. [Exactly one layer retries](adr/0019-retry-ownership.md)
-10. [One distribution per top-level module](adr/0020-packaging-strategy.md)
-11. [A second runtime for async](adr/0021-async-api.md)
+**Foundations**
 
-Still in force from 0.1:
+1. [Taskport is a portable execution layer](adr/0001-portable-execution-layer.md)
+2. [Taskport does not implement a task queue](adr/0002-not-a-task-queue.md)
+3. [Task and Job are separate primitives](adr/0003-task-and-job.md)
+4. [Keep the shared core small](adr/0004-core-scope.md)
 
-- [ADR-0004 · Keep the shared substrate small](adr/0004-taskport-core-scope.md)
-- [ADR-0005 · Capability model](adr/0005-capability-model.md) — refined by ADR-0014
-- [ADR-0006 · Environment configuration](adr/0006-environment-configuration.md) — refined by ADR-0016
-- [ADR-0007 · Provider credentials](adr/0007-provider-credentials.md)
-- [ADR-0008 · Delivery semantics](adr/0008-delivery-semantics.md) — refined by ADR-0017, ADR-0018
-- [ADR-0009 · Observability](adr/0009-observability.md)
-- [ADR-0010 · Monorepo to multi-repo](adr/0010-monorepo-to-multirepo.md)
+**The model**
 
-Superseded, kept for the record:
+5. [Capabilities define support, not method presence](adr/0005-capability-model.md)
+6. [Frameworks are adapters, pointing inward](adr/0006-framework-adapters.md)
+7. [Typed configuration, many sources, one model](adr/0007-configuration.md)
+8. [Provider-native credential chains](adr/0008-provider-credentials.md)
 
-- [ADR-0001 · Taskport as a family](adr/0001-taskport-family.md) — reframed by ADR-0011
-- [ADR-0002 · Separating the concepts](adr/0002-separate-task-job-event-schedule.md) — refined by ADR-0013
-- [ADR-0003 · Namespace packages](adr/0003-namespace-packages.md) — superseded by ADR-0020
+**Semantics**
+
+9. [JSON payloads and named functions; never pickle](adr/0009-serialization.md)
+10. [Delivery semantics — never exactly-once](adr/0010-delivery-semantics.md)
+11. [Exactly one layer retries](adr/0011-retry-ownership.md)
+12. [Observability is designed in, optional to depend on](adr/0012-observability.md)
+
+**Packaging & delivery**
+
+13. [One distribution per top-level module](adr/0013-packaging-strategy.md)
+14. [Monorepo now, clean multi-repo extraction later](adr/0014-monorepo-to-multirepo.md)
+15. [A second runtime for async](adr/0015-async-api.md)
 
 ## Adjacent concerns
 

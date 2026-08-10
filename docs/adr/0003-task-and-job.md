@@ -1,8 +1,8 @@
-# ADR-0013: Task and Job are separate primitives
+# ADR-0003: Task and Job are separate primitives
 
 - Status: Accepted
 - Date: 2026-07-26
-- Refines: [ADR-0002](0002-separate-task-job-event-schedule.md)
+- History: absorbs former ADR-0002 (separating Task/Job/Event/Schedule)
 
 ## Context
 

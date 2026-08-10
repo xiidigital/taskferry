@@ -1,7 +1,7 @@
 """``taskport_events`` — portable pub/sub and fan-out event delivery.
 
 An *Event* declares that something happened; it may have **zero or more**
-consumers (fan-out), unlike a Task, which is one operation to run (ADR-0002).
+consumers (fan-out), unlike a Task, which is one operation to run (ADR-0003).
 Plain Python, no Django required (section 57):
 
     from taskport_events import Event, publishers
