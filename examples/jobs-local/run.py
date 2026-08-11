@@ -11,6 +11,8 @@ would receive in production.
 
 from __future__ import annotations
 
+import sys
+
 from taskport import Capability, ExecutionState, Resources, Taskport
 from taskport.errors import UnsupportedCapability
 
@@ -25,7 +27,7 @@ def main() -> None:
     # -- a job that succeeds -------------------------------------------------- #
     ok = runtime.jobs.submit(
         "greet",
-        command=["python", "-c", "print('hello from a job')"],
+        command=[sys.executable, "-c", "print('hello from a job')"],
     )
     ok.wait(30)
     print(f"succeeds   {ok.state.value:>10}  exit={ok.result().exit_code}")
@@ -34,7 +36,7 @@ def main() -> None:
     # -- a job that fails, and says how --------------------------------------- #
     failed = runtime.jobs.submit(
         "explode",
-        command=["python", "-c", "import sys; print('bad input'); sys.exit(3)"],
+        command=[sys.executable, "-c", "import sys; print('bad input'); sys.exit(3)"],
     )
     final = failed.wait(30)
     print(f"\nfails      {final.state.value:>10}  exit={final.result.exit_code}")
@@ -43,7 +45,7 @@ def main() -> None:
     # -- environment reaches the child ---------------------------------------- #
     env = runtime.jobs.submit(
         "env",
-        command=["python", "-c", "import os; print('DATASET =', os.environ['DATASET'])"],
+        command=[sys.executable, "-c", "import os; print('DATASET =', os.environ['DATASET'])"],
         env={"DATASET": "scene-42"},
     )
     env.wait(30)
@@ -53,14 +55,16 @@ def main() -> None:
     # -- a timeout really stops the work -------------------------------------- #
     slow = runtime.jobs.submit(
         "sleepy",
-        command=["python", "-c", "import time; time.sleep(30)"],
+        command=[sys.executable, "-c", "import time; time.sleep(30)"],
         timeout=0.3,
     )
     print(f"\ntimeout    {slow.wait(30).state.value:>10}  (the child was terminated)")
 
     # -- cancellation, where the backend really supports it -------------------- #
     assert Capability.CANCEL in backend.capabilities
-    long = runtime.jobs.submit("long", command=["python", "-c", "import time; time.sleep(30)"])
+    long = runtime.jobs.submit(
+        "long", command=[sys.executable, "-c", "import time; time.sleep(30)"]
+    )
     print(f"cancel     {long.cancel().state.value:>10}")
 
     # -- and the refusal that matters most ------------------------------------ #

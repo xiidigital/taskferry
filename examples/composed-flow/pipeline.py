@@ -8,6 +8,7 @@ application, not to the execution layer.
 
 from __future__ import annotations
 
+import sys
 from typing import Any
 
 from taskport import Taskport
@@ -30,7 +31,7 @@ def extract_metadata(dataset_id: int) -> dict[str, Any]:
         # routing decide whether that means a subprocess or Cloud Run.
         RUNTIME.jobs.submit(
             f"build-cog-{dataset_id}",
-            command=["python", "-c", f"print('building COG for {dataset_id}')"],
+            command=[sys.executable, "-c", f"print('building COG for {dataset_id}')"],
             profile="heavy",
             labels={"dataset_id": str(dataset_id)},
         )

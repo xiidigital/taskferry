@@ -35,7 +35,7 @@ def main() -> None:
     # -- Job: an isolated workload, run to completion. ------------------------ #
     # Locally that is a subprocess. In production it is Cloud Run Jobs or
     # Kubernetes, and this line does not change either.
-    job = runtime.jobs.submit("greet", command=["python", "-c", "print('hello from a job')"])
+    job = runtime.jobs.submit("greet", command=[sys.executable, "-c", "print('hello from a job')"])
     job.wait(30)
     print(f"job      {job.state.value:>10}  exit={job.result().exit_code}")
 

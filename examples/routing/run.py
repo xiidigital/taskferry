@@ -8,6 +8,8 @@ runs. Nothing in ``business_logic`` below knows a provider exists.
 
 from __future__ import annotations
 
+import sys
+
 from taskport import ExecutionKind, JobSpec, Taskport, TaskSpec
 
 # --------------------------------------------------------------------------- #
@@ -19,7 +21,7 @@ def business_logic(runtime: Taskport) -> None:
     """Note what is absent: no provider name, no client, no SDK import."""
     runtime.tasks.submit("tasks:extract_metadata", 42, queue="metadata")
     runtime.tasks.submit("tasks:send_receipt", 42, queue="email")
-    runtime.jobs.submit("build-cog", command=["python", "-c", "pass"], profile="heavy")
+    runtime.jobs.submit("build-cog", command=[sys.executable, "-c", "pass"], profile="heavy")
 
 
 # --------------------------------------------------------------------------- #

@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import inspect
 import pickle
+import sys
 from typing import Any, Protocol, runtime_checkable
 
 import pytest
@@ -144,7 +145,7 @@ class TestTheHandleSurface:
 
     def test_the_two_ids_stay_distinct(self, runtime: Taskport) -> None:
         """A consumer persists `id`; an operator reads `external_id` off a console."""
-        handle = runtime.jobs.submit("probe", command=["python", "-c", "pass"])
+        handle = runtime.jobs.submit("probe", command=[sys.executable, "-c", "pass"])
         handle.wait(30)
         assert isinstance(str(handle.id), str) and str(handle.id)
         assert handle.external_id != str(handle.id)
