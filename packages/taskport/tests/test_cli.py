@@ -7,6 +7,7 @@ management command wraps it: one implementation, one behaviour, no drift.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -213,7 +214,7 @@ class TestSubmit:
             "--wait",
             "30",
             "--",
-            "python",
+            sys.executable,
             "-c",
             "print('hi')",
         )
@@ -230,7 +231,7 @@ class TestSubmit:
             "--wait",
             "30",
             "--",
-            "python",
+            sys.executable,
             "-c",
             "import os,sys; sys.exit(0 if os.environ['TP']=='42' else 1)",
         )

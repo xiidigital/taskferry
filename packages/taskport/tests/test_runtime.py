@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import threading
 
 import pytest
@@ -63,7 +64,7 @@ class TestAcceptanceCriteria:
         """Immediate, background and isolated execution, no infrastructure."""
         inline = runtime.inline.submit(tasks_fixture.add, 1, 1)
         task = runtime.tasks.submit(tasks_fixture.add, 2, 2)
-        job = runtime.jobs.submit("echo", command=["python", "-c", "print('hi')"])
+        job = runtime.jobs.submit("echo", command=[sys.executable, "-c", "print('hi')"])
 
         assert inline.result().value == 2
         assert task.wait(10).state is ExecutionState.SUCCEEDED
@@ -161,7 +162,7 @@ class TestTaskFacade:
 
 class TestJobFacade:
     def test_a_failing_job_reports_its_exit_code(self, runtime: Taskport) -> None:
-        handle = runtime.jobs.submit("fail", command=["python", "-c", "raise SystemExit(3)"])
+        handle = runtime.jobs.submit("fail", command=[sys.executable, "-c", "raise SystemExit(3)"])
         assert handle.wait(30).state is ExecutionState.FAILED
         assert handle.execution.result is not None
         assert handle.execution.result.exit_code == 3
@@ -169,7 +170,11 @@ class TestJobFacade:
     def test_environment_variables_reach_the_child(self, runtime: Taskport) -> None:
         handle = runtime.jobs.submit(
             "env",
-            command=["python", "-c", "import os,sys; sys.exit(0 if os.environ['TP']=='42' else 1)"],
+            command=[
+                sys.executable,
+                "-c",
+                "import os,sys; sys.exit(0 if os.environ['TP']=='42' else 1)",
+            ],
             env={"TP": "42"},
         )
         assert handle.wait(30).state is ExecutionState.SUCCEEDED
@@ -183,14 +188,14 @@ class TestJobFacade:
 
     def test_a_timeout_really_kills_the_child(self, runtime: Taskport) -> None:
         handle = runtime.jobs.submit(
-            "sleepy", command=["python", "-c", "import time; time.sleep(30)"], timeout=0.3
+            "sleepy", command=[sys.executable, "-c", "import time; time.sleep(30)"], timeout=0.3
         )
         final = handle.wait(30)
         assert final.state is ExecutionState.TIMED_OUT
 
     def test_cancel_stops_a_running_job(self, runtime: Taskport) -> None:
         handle = runtime.jobs.submit(
-            "long", command=["python", "-c", "import time; time.sleep(30)"]
+            "long", command=[sys.executable, "-c", "import time; time.sleep(30)"]
         )
         cancelled = handle.cancel()
         assert cancelled.state is ExecutionState.CANCELLED
@@ -416,7 +421,7 @@ class TestExecutionHandle:
         from taskport.errors import TaskportTimeoutError
 
         handle = runtime.jobs.submit(
-            "slow", command=["python", "-c", "import time; time.sleep(10)"]
+            "slow", command=[sys.executable, "-c", "import time; time.sleep(10)"]
         )
         with pytest.raises(TaskportTimeoutError):
             handle.wait(0.2)

@@ -8,6 +8,7 @@ responsiveness check and the concurrency check.
 from __future__ import annotations
 
 import asyncio
+import sys
 import time
 
 import pytest
@@ -69,7 +70,7 @@ class TestThreePrimitives:
         assert await handle.value() == 3
 
     async def test_job(self, aio: AsyncTaskport) -> None:
-        handle = await aio.jobs.submit("echo", command=["python", "-c", "print('hi')"])
+        handle = await aio.jobs.submit("echo", command=[sys.executable, "-c", "print('hi')"])
         assert (await handle.wait(30)).state is ExecutionState.SUCCEEDED
         assert (await handle.result()).exit_code == 0
 
@@ -93,7 +94,7 @@ class TestItReallyDoesNotBlockTheLoop:
         beat = asyncio.create_task(heartbeat())
         try:
             handle = await aio.jobs.submit(
-                "slow", command=["python", "-c", "import time; time.sleep(0.4)"]
+                "slow", command=[sys.executable, "-c", "import time; time.sleep(0.4)"]
             )
             await handle.wait(30)
         finally:
@@ -109,7 +110,9 @@ class TestItReallyDoesNotBlockTheLoop:
         started = time.monotonic()
         handles = await asyncio.gather(
             *(
-                aio.jobs.submit(f"j{n}", command=["python", "-c", "import time; time.sleep(0.2)"])
+                aio.jobs.submit(
+                    f"j{n}", command=[sys.executable, "-c", "import time; time.sleep(0.2)"]
+                )
                 for n in range(4)
             )
         )
@@ -223,7 +226,7 @@ class TestRoutingAndCapabilitiesAreShared:
 
     async def test_cancel_works_where_supported(self, aio: AsyncTaskport) -> None:
         handle = await aio.jobs.submit(
-            "long", command=["python", "-c", "import time; time.sleep(30)"]
+            "long", command=[sys.executable, "-c", "import time; time.sleep(30)"]
         )
         assert Capability.CANCEL in handle.capabilities
         assert (await handle.cancel()).state is ExecutionState.CANCELLED
@@ -240,7 +243,7 @@ class TestFailures:
         from taskport.errors import TaskportTimeoutError
 
         handle = await aio.jobs.submit(
-            "slow", command=["python", "-c", "import time; time.sleep(10)"]
+            "slow", command=[sys.executable, "-c", "import time; time.sleep(10)"]
         )
         with pytest.raises(TaskportTimeoutError):
             await handle.wait(0.2)

@@ -7,6 +7,8 @@ third-party adapter.
 
 from __future__ import annotations
 
+import sys
+
 import tasks_fixture
 from taskport.backends.inline import InlineExecutionBackend
 from taskport.backends.process import ProcessTaskBackend
@@ -52,4 +54,4 @@ class TestSubprocessBackendContract(JobBackendContract):
         return SubprocessJobBackend()
 
     def success_spec(self) -> JobSpec:
-        return JobSpec(job="ok", command=["python", "-c", "pass"])
+        return JobSpec(job="ok", command=[sys.executable, "-c", "pass"])
