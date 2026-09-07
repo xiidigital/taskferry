@@ -38,6 +38,7 @@ the async surface (`AsyncTaskport`). Zero dependencies, enforced three ways.
 | `taskport-sqs` | ✅ task backend + Lambda/ECS consumers, per-queue capabilities |
 | `taskport-servicebus` | ✅ task backend + consumers, unbounded scheduling |
 | `taskport-dramatiq` | ✅ task backend + worker actor |
+| `taskport-celery` | ✅ task backend + worker dispatcher, engine-owned retries |
 | `taskport-cloudrun` | ✅ job backend, contract-tested |
 | `taskport-jobs` | ✅ AWS Batch, Kubernetes, Azure Container Apps job backends |
 | `taskport-django` | ✅ `django.tasks` backend, settings, on-commit, checks, CLI |
@@ -48,18 +49,18 @@ the async surface (`AsyncTaskport`). Zero dependencies, enforced three ways.
 
 Ordered by how much each would teach us about whether the abstraction holds.
 
-1. **A Celery task backend.** Celery's model differs from both Procrastinate's and
-   Cloud Tasks' — it has its own result backend, its own routing, its own
-   serializers. If `TaskSpec` survives Celery unchanged, the task port is right.
-2. **Log streaming for jobs.** Every job backend exposes a log *location*; none
+1. **Log streaming for jobs.** Every job backend exposes a log *location*; none
    streams. It is a real gap for anyone watching a long GDAL run.
-3. **Natively async adapters.** Every backend has a working async path derived
+2. **Natively async adapters.** Every backend has a working async path derived
    with `asyncio.to_thread`. An adapter built on `aiobotocore` or an async
    Procrastinate connector could skip the thread entirely — a performance
    refinement, not a correctness one.
-4. **`taskport-otel`.** The tracer bridge lives in `taskport.core.otel` behind an
+3. **`taskport-otel`.** The tracer bridge lives in `taskport.core.otel` behind an
    extra. Moving it to its own distribution would remove the last optional
    dependency from the core.
+
+The Celery task backend that used to head this list shipped as
+`taskport-celery`: `TaskSpec` reached Celery unchanged, so the task port held.
 
 ## What will never be built
 
