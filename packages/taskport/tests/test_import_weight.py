@@ -46,6 +46,7 @@ ADAPTERS: dict[str, tuple[str, ...]] = {
     "taskport_sqs": ("boto3", "botocore"),
     "taskport_servicebus": ("azure", "uamqp"),
     "taskport_dramatiq": ("dramatiq", "redis", "pika"),
+    "taskport_celery": ("celery", "kombu", "redis", "amqp"),
     "taskport_jobs": ("boto3", "botocore", "kubernetes", "azure"),
     "taskport_events": ("google", "boto3", "botocore", "azure", "confluent_kafka"),
     "taskport_scheduler": ("google", "boto3", "botocore", "kubernetes"),
@@ -63,6 +64,7 @@ SUBMODULES: dict[str, tuple[str, ...]] = {
     "taskport_sqs": ("taskport_sqs.backend", "taskport_sqs.consumer"),
     "taskport_servicebus": ("taskport_servicebus.backend", "taskport_servicebus.consumer"),
     "taskport_dramatiq": ("taskport_dramatiq.backend", "taskport_dramatiq.worker"),
+    "taskport_celery": ("taskport_celery.backend", "taskport_celery.worker"),
     "taskport_cloudtasks": ("taskport_cloudtasks.backend", "taskport_cloudtasks.receiver"),
     "taskport_cloudrun": ("taskport_cloudrun.backend",),
     "taskport_procrastinate": (

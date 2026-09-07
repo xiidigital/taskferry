@@ -27,6 +27,7 @@ taskport = { workspace = true }
 taskport-procrastinate = { workspace = true }
 taskport-cloudtasks = { workspace = true }
 taskport-cloudrun = { workspace = true }
+taskport-celery = { workspace = true }
 taskport-dramatiq = { workspace = true }
 taskport-servicebus = { workspace = true }
 taskport-sqs = { workspace = true }
@@ -57,6 +58,7 @@ dev = [
     "taskport-sqs",
     "taskport-servicebus",
     "taskport-dramatiq",
+    "taskport-celery",
     "taskport-jobs",
     "taskport-events",
     "taskport-scheduler",
@@ -94,6 +96,7 @@ mypy_path = [
     "packages/taskport-sqs/src",
     "packages/taskport-servicebus/src",
     "packages/taskport-dramatiq/src",
+    "packages/taskport-celery/src",
     "packages/taskport-jobs/src",
     "packages/taskport-events/src",
     "packages/taskport-scheduler/src",
@@ -127,6 +130,7 @@ module = [
     "confluent_kafka.*",
     "procrastinate.*",
     "dramatiq.*",
+    "celery.*",
 ]
 ignore_missing_imports = true
 
@@ -161,6 +165,7 @@ source = [
     "taskport_sqs",
     "taskport_servicebus",
     "taskport_dramatiq",
+    "taskport_celery",
     "taskport_jobs",
     "taskport_events",
     "taskport_scheduler",
