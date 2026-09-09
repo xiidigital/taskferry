@@ -73,7 +73,7 @@ def configure_opentelemetry(instrumenting_module_name: str = "taskport") -> Trac
     except ImportError as exc:  # pragma: no cover - env-specific
         raise RuntimeError(
             "OpenTelemetry is required for configure_opentelemetry; "
-            "install the 'otel' extra (e.g. taskport-jobs[otel])"
+            "install taskport-otel (which pulls in opentelemetry-api)"
         ) from exc
     tracer = OTelTracer(trace.get_tracer(instrumenting_module_name))
     set_tracer(tracer)

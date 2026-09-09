@@ -21,9 +21,11 @@ low-level library. We also do not want a separate `taskport-otel` package yet
 - Taskport always **propagates** W3C Trace Context (`traceparent`/`tracestate`)
   and `correlation_id` through `Correlation`, whether or not OTel is installed —
   it just moves the strings.
-- OpenTelemetry integration ships as an **extra** per package
-  (`taskport-jobs[otel]`, etc.), not a hard dependency. Installing it and calling
-  `set_tracer(...)` with an OTel-backed tracer activates real spans.
+- OpenTelemetry integration ships as its **own distribution**, `taskport-otel`,
+  not a dependency of the core (which declares none, required or optional). The
+  bridge implementation stays importable at `taskport.core.otel` and imports
+  opentelemetry lazily; installing `taskport-otel` and calling
+  `configure_opentelemetry()` activates real spans.
 
 ## Consequences
 

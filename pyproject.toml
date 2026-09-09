@@ -28,6 +28,7 @@ taskport-procrastinate = { workspace = true }
 taskport-cloudtasks = { workspace = true }
 taskport-cloudrun = { workspace = true }
 taskport-celery = { workspace = true }
+taskport-otel = { workspace = true }
 taskport-dramatiq = { workspace = true }
 taskport-servicebus = { workspace = true }
 taskport-sqs = { workspace = true }
@@ -59,6 +60,7 @@ dev = [
     "taskport-servicebus",
     "taskport-dramatiq",
     "taskport-celery",
+    "taskport-otel",
     "taskport-jobs",
     "taskport-events",
     "taskport-scheduler",
@@ -97,6 +99,7 @@ mypy_path = [
     "packages/taskport-servicebus/src",
     "packages/taskport-dramatiq/src",
     "packages/taskport-celery/src",
+    "packages/taskport-otel/src",
     "packages/taskport-jobs/src",
     "packages/taskport-events/src",
     "packages/taskport-scheduler/src",
@@ -166,6 +169,7 @@ source = [
     "taskport_servicebus",
     "taskport_dramatiq",
     "taskport_celery",
+    "taskport_otel",
     "taskport_jobs",
     "taskport_events",
     "taskport_scheduler",

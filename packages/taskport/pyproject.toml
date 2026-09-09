@@ -36,9 +36,10 @@ classifiers = [
 # Celery, a cloud SDK or a Kubernetes client. Adapters are separate distributions.
 dependencies = []
 
-[project.optional-dependencies]
-# The OpenTelemetry bridge is opt-in; the tracer is a no-op without it.
-otel = ["opentelemetry-api>=1.27"]
+# No optional dependencies: the OpenTelemetry bridge now lives in its own
+# distribution, `taskport-otel`, so `taskport` declares nothing beyond itself.
+# The bridge code stays importable at `taskport.core.otel` and imports
+# opentelemetry lazily, so the core carries no dependency, required or optional.
 
 [project.scripts]
 taskport = "taskport.cli:main"
