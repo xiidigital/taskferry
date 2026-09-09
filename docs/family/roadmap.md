@@ -49,18 +49,23 @@ the async surface (`AsyncTaskport`). Zero dependencies, enforced three ways.
 
 Ordered by how much each would teach us about whether the abstraction holds.
 
-1. **Log streaming for jobs.** Every job backend exposes a log *location*; none
-   streams. It is a real gap for anyone watching a long GDAL run.
-2. **Natively async adapters.** Every backend has a working async path derived
+1. **Natively async adapters.** Every backend has a working async path derived
    with `asyncio.to_thread`. An adapter built on `aiobotocore` or an async
    Procrastinate connector could skip the thread entirely — a performance
    refinement, not a correctness one.
-3. **`taskport-otel`.** The tracer bridge lives in `taskport.core.otel` behind an
-   extra. Moving it to its own distribution would remove the last optional
-   dependency from the core.
+2. **Streaming logs for the *cloud* job backends.** The local subprocess backend
+   now streams (`stream_logs`); Cloud Run, AWS Batch and Kubernetes still expose
+   only a log *location*, and wiring each provider's own log stream behind the
+   same method is the remaining gap.
 
-The Celery task backend that used to head this list shipped as
-`taskport-celery`: `TaskSpec` reached Celery unchanged, so the task port held.
+Recently shipped from this list:
+
+- **`taskport-celery`** — a Celery task backend. `TaskSpec` reached Celery
+  unchanged, so the task port held.
+- **`taskport-otel`** — the OpenTelemetry bridge as its own distribution,
+  removing the last optional dependency from the core.
+- **Local job log streaming** — `SubprocessJobBackend.stream_logs` follows a
+  running job's output line by line, like `tail -f`.
 
 ## What will never be built
 

@@ -39,6 +39,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -299,6 +300,63 @@ class SubprocessJobBackend(BaseBackend):
             return record.log_path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return ""
+
+    def stream_logs(
+        self,
+        execution_id: ExecutionId,
+        *,
+        poll_interval: float = 0.1,
+        timeout: float | None = None,
+    ) -> Iterator[str]:
+        """Yield the job's output line by line *as it is produced*.
+
+        Where :meth:`logs` returns the output once, this follows the growing log
+        file — the way ``tail -f`` does — so a caller can watch a long-running job
+        live::
+
+            for line in backend.stream_logs(job_id):
+                print(line)
+
+        The iterator ends when the child reaches a terminal state and the last
+        buffered output has been drained, or after ``timeout`` seconds if given.
+        Lines are yielded without their trailing newline. Requires
+        ``Capability.LOGS``.
+
+        This is a genuine stream, not a poll-and-diff: a job backend that could
+        only report a log *location* (Cloud Run, AWS Batch) does not advertise it,
+        and callers reach for the provider's own log stream there.
+        """
+        self.capabilities.require(Capability.LOGS)
+        record = self._record(execution_id)
+        deadline = None if timeout is None else time.monotonic() + timeout
+        try:
+            reader = record.log_path.open("r", encoding="utf-8", errors="replace")
+        except OSError:  # pragma: no cover - the file is created before the record
+            return
+        pending = ""
+        with reader:
+            while True:
+                chunk = reader.read()
+                if chunk:
+                    pending += chunk
+                    lines = pending.split("\n")
+                    pending = lines.pop()  # keep the trailing partial line
+                    yield from lines
+                    continue
+                with self._lock:
+                    terminal = self._refresh_locked(record).is_terminal
+                if terminal:
+                    pending += reader.read()
+                    remaining = pending.split("\n")
+                    if remaining and remaining[-1] == "":
+                        remaining.pop()  # no spurious empty line from a final newline
+                    yield from remaining
+                    return
+                if deadline is not None and time.monotonic() > deadline:
+                    if pending:
+                        yield pending
+                    return
+                time.sleep(poll_interval)
 
     def close(self) -> None:
         """Terminate every child this backend still owns, then forget them."""
