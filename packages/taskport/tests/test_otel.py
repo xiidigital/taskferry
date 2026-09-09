@@ -25,11 +25,16 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E4
 
 @pytest.fixture(scope="module")
 def exporter() -> InMemorySpanExporter:
-    # The OTel global TracerProvider may only be set once per process.
-    provider = TracerProvider()
+    # The OTel global TracerProvider may only be *set* once per process, but
+    # processors can always be added. Reuse whatever provider is active (another
+    # test module may have set it first) and attach our own exporter to it, so
+    # this fixture is order-independent.
+    provider = trace.get_tracer_provider()
+    if not isinstance(provider, TracerProvider):
+        provider = TracerProvider()
+        trace.set_tracer_provider(provider)
     exp = InMemorySpanExporter()
     provider.add_span_processor(SimpleSpanProcessor(exp))
-    trace.set_tracer_provider(provider)
     return exp
 
 

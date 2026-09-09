@@ -47,6 +47,9 @@ ADAPTERS: dict[str, tuple[str, ...]] = {
     "taskport_servicebus": ("azure", "uamqp"),
     "taskport_dramatiq": ("dramatiq", "redis", "pika"),
     "taskport_celery": ("celery", "kombu", "redis", "amqp"),
+    # Not a backend adapter: taskport-otel legitimately imports opentelemetry
+    # (its whole purpose). It must still not drag in a provider SDK.
+    "taskport_otel": ("boto3", "botocore", "google", "azure", "kubernetes"),
     "taskport_jobs": ("boto3", "botocore", "kubernetes", "azure"),
     "taskport_events": ("google", "boto3", "botocore", "azure", "confluent_kafka"),
     "taskport_scheduler": ("google", "boto3", "botocore", "kubernetes"),
