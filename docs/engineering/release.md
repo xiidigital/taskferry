@@ -23,18 +23,33 @@ publishing anything.
 ## Publish — Trusted Publishing (OIDC), no stored tokens
 
 Publishing uses PyPI Trusted Publishing via GitHub Actions OIDC. **No API tokens
-are stored anywhere.** The template is `tooling/ci-templates/release.yml`; it
-triggers on a GitHub Release and needs `permissions: id-token: write`.
+are stored anywhere.**
 
-First release of a package (manual, one-time, done by a maintainer):
+### In this monorepo
 
-1. Register the project name on PyPI.
-2. Configure the Trusted Publisher (owner, repo, `release.yml`, environment).
-3. Create a GitHub Release tagged for that package — the workflow builds and
-   publishes.
+`.github/workflows/release.yml` publishes **one** distribution when a per-package
+tag is pushed. The tag is `<distribution>-v<version>`:
 
-Nothing here publishes automatically from the monorepo without a maintainer
-creating that Release.
+```bash
+git tag taskport-v0.2.0        && git push origin taskport-v0.2.0        # publishes taskport
+git tag taskport-celery-v0.1.0 && git push origin taskport-celery-v0.1.0 # publishes taskport-celery
+```
+
+The workflow derives the package from the tag, runs `uv build --package <dist>`,
+and uploads it with `pypa/gh-action-pypi-publish` over OIDC.
+
+First release of each package (one-time, per distribution):
+
+1. Create a **Trusted Publisher** on PyPI for the project (a *pending publisher*
+   works before the project exists): <https://pypi.org/manage/account/publishing/>
+   with — Owner `xiidigital`, Repository `taskport`, Workflow `release.yml`,
+   Environment *(leave blank)*.
+2. Push the package's tag (above). Nothing publishes without that tag.
+
+### After extraction
+
+The single-repo template is `tooling/ci-templates/release.yml` (triggers on a
+GitHub Release). Use it once a package moves to its own repository.
 
 ## Extraction to a standalone repo
 

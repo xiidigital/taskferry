@@ -1,0 +1,55 @@
+name: Release
+
+# Publishes ONE distribution to PyPI when a per-package tag is pushed, e.g.
+#   taskport-v0.2.0            -> publishes the `taskport` distribution
+#   taskport-celery-v0.1.0     -> publishes `taskport-celery`
+#
+# Uses PyPI Trusted Publishing (OIDC): no API tokens are stored anywhere. Each
+# PyPI project must have a Trusted Publisher configured for this repo pointing at
+# workflow `release.yml` (see docs/engineering/release.md).
+
+on:
+  push:
+    tags:
+      - "*-v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      package: ${{ steps.parse.outputs.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Derive the package name from the tag
+        id: parse
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          package="${tag%-v*}"        # strip the trailing -v<version>
+          if [ ! -d "packages/${package}" ]; then
+            echo "::error::tag '${tag}' -> unknown package 'packages/${package}'"
+            exit 1
+          fi
+          echo "package=${package}" >> "$GITHUB_OUTPUT"
+          echo "Building ${package} from tag ${tag}"
+      - name: Build the tagged distribution only
+        run: uv build --package "${{ steps.parse.outputs.package }}" --out-dir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for OIDC Trusted Publishing; no token needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
