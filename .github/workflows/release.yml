@@ -45,6 +45,12 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    # A GitHub Environment named after the distribution. It makes each PyPI
+    # Trusted Publisher's claim set unique (owner+repo+workflow+environment), so
+    # every package in this monorepo can register its own publisher — PyPI
+    # forbids two *pending* publishers that share an identical configuration.
+    # GitHub creates the environment on first use; no manual setup needed.
+    environment: ${{ needs.build.outputs.package }}
     permissions:
       id-token: write   # required for OIDC Trusted Publishing; no token needed
     steps:
