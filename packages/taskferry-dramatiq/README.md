@@ -1,6 +1,6 @@
 # taskferry-dramatiq
 
-Run [Taskferry](https://github.com/taskferry/taskferry) tasks on
+Run [Taskferry](https://github.com/xiidigital/taskferry) tasks on
 [Dramatiq](https://dramatiq.io) — Redis or RabbitMQ, with real worker processes.
 
 ```mermaid

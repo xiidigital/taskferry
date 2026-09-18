@@ -1,6 +1,6 @@
 # taskferry-sqs
 
-Run [Taskferry](https://github.com/taskferry/taskferry) tasks on **AWS SQS** —
+Run [Taskferry](https://github.com/xiidigital/taskferry) tasks on **AWS SQS** —
 pull-based delivery, consumed by a Lambda, an ECS service, or your own loop.
 
 ```mermaid

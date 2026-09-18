@@ -1,6 +1,6 @@
 # taskferry-servicebus
 
-Run [Taskferry](https://github.com/taskferry/taskferry) tasks on **Azure Service
+Run [Taskferry](https://github.com/xiidigital/taskferry) tasks on **Azure Service
 Bus** — pull-based delivery with unrestricted scheduling.
 
 ```mermaid
@@ -21,7 +21,7 @@ seconds.
 
 One "queue adapter with a flag" would have to pick a lowest common denominator.
 Two adapters with two honest capability sets do not. See
-[ADR-0005](https://github.com/taskferry/taskferry/blob/main/docs/adr/0005-capability-model.md).
+[ADR-0005](https://github.com/xiidigital/taskferry/blob/main/docs/adr/0005-capability-model.md).
 
 ## Sending
 
@@ -91,7 +91,7 @@ eventually dead-letters per the queue's `MaxDeliveryCount`.
 
 `DEDUPLICATION` is real but bounded by the queue's duplicate-detection window —
 a tool for idempotency, never an exactly-once promise. See
-[ADR-0010](https://github.com/taskferry/taskferry/blob/main/docs/adr/0010-delivery-semantics.md).
+[ADR-0010](https://github.com/xiidigital/taskferry/blob/main/docs/adr/0010-delivery-semantics.md).
 
 ## License
 

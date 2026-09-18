@@ -1,6 +1,6 @@
 # taskferry-cloudtasks
 
-Run [Taskferry](https://github.com/taskferry/taskferry) tasks on **Google Cloud
+Run [Taskferry](https://github.com/xiidigital/taskferry) tasks on **Google Cloud
 Tasks** — push-based, serverless, no worker process.
 
 ```mermaid

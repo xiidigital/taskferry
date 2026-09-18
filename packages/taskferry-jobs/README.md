@@ -1,6 +1,6 @@
 # taskferry-jobs
 
-Batch job backends for [Taskferry](https://github.com/taskferry/taskferry): **AWS
+Batch job backends for [Taskferry](https://github.com/xiidigital/taskferry): **AWS
 Batch**, **Kubernetes** and **Azure Container Apps Jobs**.
 
 ```mermaid

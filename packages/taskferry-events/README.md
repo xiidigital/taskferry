@@ -1,6 +1,6 @@
 # taskferry-events
 
-Portable **pub/sub and fan-out** event delivery. Ships alongside [Taskferry](https://github.com/taskferry/taskferry),
+Portable **pub/sub and fan-out** event delivery. Ships alongside [Taskferry](https://github.com/xiidigital/taskferry),
 the portable execution layer. Plain Python, no Django required.
 
 An **Event** declares that *something happened* and may have **zero or more**

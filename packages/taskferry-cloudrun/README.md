@@ -1,6 +1,6 @@
 # taskferry-cloudrun
 
-Run [Taskferry](https://github.com/taskferry/taskferry) jobs on **Google Cloud Run
+Run [Taskferry](https://github.com/xiidigital/taskferry) jobs on **Google Cloud Run
 Jobs** — serverless, run-to-completion container workloads.
 
 ```mermaid

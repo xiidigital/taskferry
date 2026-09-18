@@ -30,9 +30,9 @@ gcp = ["google-cloud-tasks>=2.16"]
 cloudtasks = "taskferry_cloudtasks:make_backend"
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-cloudtasks"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev"
-Source = "https://github.com/taskferry/taskferry-cloudtasks"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_cloudtasks"]

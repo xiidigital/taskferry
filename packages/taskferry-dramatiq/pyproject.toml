@@ -32,9 +32,9 @@ rabbitmq = ["dramatiq[rabbitmq]>=1.16"]
 dramatiq = "taskferry_dramatiq:make_backend"
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-dramatiq"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev"
-Source = "https://github.com/taskferry/taskferry-dramatiq"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_dramatiq"]

@@ -3,7 +3,7 @@
 Taskferry is a **portable execution layer for Python** — it models units of work,
 picks the right kind of execution, and routes them to engines that already exist.
 
-Start with the [repository README](https://github.com/taskferry/taskferry#readme)
+Start with the [repository README](https://github.com/xiidigital/taskferry#readme)
 for the tour. This directory holds the detail.
 
 ## Architecture
@@ -28,7 +28,7 @@ for the tour. This directory holds the detail.
   Publishing.
 - [CI](engineering/ci.md) — the four gates and how they map to the invariants.
 
-See also [`CONTRIBUTING.md`](https://github.com/taskferry/taskferry/blob/main/CONTRIBUTING.md)
+See also [`CONTRIBUTING.md`](https://github.com/xiidigital/taskferry/blob/main/CONTRIBUTING.md)
 at the repository root for setup.
 
 ## Decisions (ADRs)

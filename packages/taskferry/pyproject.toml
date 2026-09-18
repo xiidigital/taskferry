@@ -45,10 +45,10 @@ dependencies = []
 taskferry = "taskferry.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev"
-Source = "https://github.com/taskferry/taskferry"
-Changelog = "https://github.com/taskferry/taskferry/blob/main/packages/taskferry/CHANGELOG.md"
+Source = "https://github.com/xiidigital/taskferry"
+Changelog = "https://github.com/xiidigital/taskferry/blob/main/packages/taskferry/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry"]

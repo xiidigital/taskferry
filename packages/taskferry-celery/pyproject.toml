@@ -30,9 +30,9 @@ celery = ["celery>=5.3"]
 celery = "taskferry_celery:make_backend"
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-celery"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev"
-Source = "https://github.com/taskferry/taskferry-celery"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_celery"]

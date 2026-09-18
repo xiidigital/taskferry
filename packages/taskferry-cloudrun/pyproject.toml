@@ -30,9 +30,9 @@ gcp = ["google-cloud-run>=0.10"]
 cloudrun = "taskferry_cloudrun:make_backend"
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-cloudrun"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev"
-Source = "https://github.com/taskferry/taskferry-cloudrun"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_cloudrun"]
