@@ -37,6 +37,8 @@ Route GPU work at a backend that really allocates GPUs.
 
 from __future__ import annotations
 
+import time
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -138,6 +140,7 @@ class CloudRunJobBackend(BaseBackend):
         location: str | None = None,
         jobs_client: Any = None,
         executions_client: Any = None,
+        logging_client: Any = None,
         name: str = "cloudrun",
         tracked_ids: int = 10_000,
     ) -> None:
@@ -150,6 +153,7 @@ class CloudRunJobBackend(BaseBackend):
         self._location = location
         self._jobs_client = jobs_client
         self._executions_client = executions_client
+        self._logging_client = logging_client
         self._name = name
         # Cloud Run names executions itself, so remember which of its names goes
         # with which Taskferry id; a full resource path is accepted directly.
@@ -185,6 +189,11 @@ class CloudRunJobBackend(BaseBackend):
         if self._executions_client is None:
             self._executions_client = _run_v2().ExecutionsClient()
         return self._executions_client
+
+    def _logging(self) -> Any:
+        if self._logging_client is None:
+            self._logging_client = _logging_v2().Client(project=self._project)
+        return self._logging_client
 
     # -- resource names ----------------------------------------------------------- #
     def job_resource(self, spec: JobSpec) -> str:
@@ -318,6 +327,91 @@ class CloudRunJobBackend(BaseBackend):
             f"?project={self._project}&query=resource.labels.location%3D%22{self._location}%22"
         )
 
+    # -- logs ----------------------------------------------------------------------- #
+    def logs(self, execution_id: ExecutionId) -> str:
+        """Read the execution's Cloud Logging output once. Requires ``Capability.LOGS``."""
+        self.capabilities.require(Capability.LOGS)
+        return "\n".join(self.stream_logs(execution_id, follow=False))
+
+    def stream_logs(
+        self,
+        execution_id: ExecutionId,
+        *,
+        follow: bool = True,
+        poll_interval: float = 2.0,
+        timeout: float | None = None,
+    ) -> Iterator[str]:
+        """Yield the execution's Cloud Logging entries, following them live by default.
+
+        Cloud Logging is queried by filter rather than truly streamed, so this
+        pages entries in timestamp order, de-duplicating by insert id, and — with
+        ``follow=True`` — keeps polling for new entries until the execution reaches
+        a terminal state. With ``follow=False`` it returns what is there and stops.
+        ``timeout`` bounds the total stream. Requires ``Capability.LOGS``.
+        """
+        self.capabilities.require(Capability.LOGS)
+        external_id = self._ids.resolve(str(execution_id))
+        if external_id is None:
+            raise ExecutionNotFound(
+                f"{execution_id!r} was not submitted by this backend instance; pass the "
+                "Cloud Run execution name to stream its logs from another process",
+                backend=self._name,
+            )
+        execution_name = external_id.rsplit("/executions/", 1)[-1]
+        base_filter = (
+            'resource.type="cloud_run_job" '
+            f'AND resource.labels.location="{self._location}" '
+            f'AND labels."run.googleapis.com/execution_name"="{execution_name}"'
+        )
+        deadline = None if timeout is None else time.monotonic() + timeout
+        client = self._logging()
+        seen: set[str] = set()
+        since: str | None = None
+        while True:
+            log_filter = base_filter if since is None else f'{base_filter} AND timestamp>="{since}"'
+            try:
+                entries = list(
+                    client.list_entries(
+                        resource_names=[f"projects/{self._project}"],
+                        filter_=log_filter,
+                        order_by="timestamp asc",
+                        page_size=1000,
+                    )
+                )
+            except Exception as exc:
+                if _is_not_found(exc):
+                    return
+                raise BackendError(
+                    f"Cloud Run could not read logs for {external_id!r}: {exc}", backend=self._name
+                ) from exc
+            new = 0
+            for entry in entries:
+                insert_id = str(getattr(entry, "insert_id", "") or "")
+                if insert_id and insert_id in seen:
+                    continue
+                if insert_id:
+                    seen.add(insert_id)
+                timestamp = getattr(entry, "timestamp", None)
+                if timestamp is not None:
+                    since = _rfc3339(timestamp)
+                text = _entry_text(entry)
+                if text is not None:
+                    yield text
+                    new += 1
+            if new == 0:
+                if not follow or self._is_terminal(external_id):
+                    return
+                if deadline is not None and time.monotonic() > deadline:
+                    return
+                time.sleep(poll_interval)
+
+    def _is_terminal(self, external_id: str) -> bool:
+        try:
+            remote = self._executions().get_execution(name=external_id)
+        except Exception:  # a vanished execution is, for our purposes, done
+            return True
+        return map_execution_state(remote)[0].is_terminal
+
 
 def _run_v2() -> Any:
     """Import ``google.cloud.run_v2`` lazily, with an actionable error."""
@@ -328,6 +422,39 @@ def _run_v2() -> Any:
             "the Cloud Run backend needs the Google SDK: pip install 'taskferry-cloudrun[gcp]'"
         ) from exc
     return run_v2
+
+
+def _logging_v2() -> Any:
+    """Import ``google.cloud.logging_v2`` lazily, with an actionable error."""
+    try:
+        from google.cloud import logging_v2
+    except ImportError as exc:  # pragma: no cover - depends on the environment
+        raise ConfigurationError(
+            "the Cloud Run backend needs the Google logging SDK: "
+            "pip install 'taskferry-cloudrun[gcp]'"
+        ) from exc
+    return logging_v2
+
+
+def _entry_text(entry: Any) -> str | None:
+    """Extract a line of text from a Cloud Logging entry (text or struct payload)."""
+    payload = getattr(entry, "payload", None)
+    if payload is None:
+        return None
+    if isinstance(payload, str):
+        return payload.rstrip("\n")
+    if isinstance(payload, dict):
+        message = payload.get("message")
+        return str(message if message is not None else payload).rstrip("\n")
+    return str(payload).rstrip("\n")
+
+
+def _rfc3339(timestamp: Any) -> str:
+    """Format a timestamp for a Cloud Logging ``timestamp>=`` filter."""
+    if isinstance(timestamp, datetime):
+        moment = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    return str(timestamp)
 
 
 def _execution_name(operation: Any) -> str | None:
@@ -373,6 +500,7 @@ def make_backend(**options: Any) -> CloudRunJobBackend:
         location=options.get("location"),
         jobs_client=options.get("jobs_client"),
         executions_client=options.get("executions_client"),
+        logging_client=options.get("logging_client"),
         name=str(options.get("name", "cloudrun")),
         tracked_ids=int(options.get("tracked_ids", 10_000)),
     )

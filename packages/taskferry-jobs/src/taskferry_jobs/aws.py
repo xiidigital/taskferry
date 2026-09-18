@@ -20,10 +20,15 @@ mechanism — no application code changes.
 
 ``boto3`` is imported lazily and the client is injectable, so the tests need no
 AWS account and ``import taskferry_jobs`` costs nothing.
+
+Logs are read from CloudWatch, where Batch writes them: ``logs`` for the whole
+job once, ``stream_logs`` to tail it live while the job runs.
 """
 
 from __future__ import annotations
 
+import time
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -107,6 +112,8 @@ class BatchJobBackend(BaseBackend):
         job_queue: str | None = None,
         job_definition: str | None = None,
         client: Any = None,
+        logs_client: Any = None,
+        log_group: str = "/aws/batch/job",
         name: str = "batch",
         tracked_ids: int = 10_000,
     ) -> None:
@@ -114,6 +121,8 @@ class BatchJobBackend(BaseBackend):
         self._job_queue = job_queue
         self._job_definition = job_definition
         self._client = client
+        self._logs = logs_client
+        self._log_group = log_group
         self._name = name
         self._ids = ExternalIdIndex(capacity=tracked_ids)
 
@@ -139,6 +148,17 @@ class BatchJobBackend(BaseBackend):
                 ) from exc
             self._client = boto3.client("batch", region_name=self._region)
         return self._client
+
+    def _logs_client(self) -> Any:
+        if self._logs is None:
+            try:
+                import boto3
+            except ImportError as exc:  # pragma: no cover - depends on the environment
+                raise ConfigurationError(
+                    "the AWS Batch backend needs boto3: pip install 'taskferry-jobs[aws]'"
+                ) from exc
+            self._logs = boto3.client("logs", region_name=self._region)
+        return self._logs
 
     def _required(self, spec: JobSpec, key: str, default: str | None) -> str:
         value = spec.options_for("aws").get(key, default)
@@ -282,6 +302,84 @@ class BatchJobBackend(BaseBackend):
             ) from exc
         return self._get(execution_id)
 
+    # -- logs ----------------------------------------------------------------------- #
+    def logs(self, execution_id: ExecutionId) -> str:
+        """Read the job's CloudWatch output once. Requires ``Capability.LOGS``."""
+        self.capabilities.require(Capability.LOGS)
+        return "\n".join(self.stream_logs(execution_id, follow=False))
+
+    def stream_logs(
+        self,
+        execution_id: ExecutionId,
+        *,
+        follow: bool = True,
+        poll_interval: float = 2.0,
+        timeout: float | None = None,
+    ) -> Iterator[str]:
+        """Yield the job's CloudWatch log lines, following them live by default.
+
+        Batch writes container output to a CloudWatch log stream that only exists
+        once the job starts running, so this waits for the stream to appear, then
+        pages through it. With ``follow=True`` it keeps tailing until the job
+        reaches a terminal state; with ``follow=False`` it drains what is there and
+        stops. ``timeout`` bounds the wait and the total stream. Requires
+        ``Capability.LOGS``.
+        """
+        self.capabilities.require(Capability.LOGS)
+        deadline = None if timeout is None else time.monotonic() + timeout
+        stream = self._await_log_stream(
+            execution_id, deadline=deadline, poll_interval=poll_interval
+        )
+        if stream is None:
+            return
+        client = self._logs_client()
+        token: str | None = None
+        while True:
+            request = {
+                "logGroupName": self._log_group,
+                "logStreamName": stream,
+                "startFromHead": True,
+            }
+            if token is not None:
+                request["nextToken"] = token
+            try:
+                response = client.get_log_events(**request)
+            except Exception as exc:
+                if _is_not_found(exc):
+                    return
+                raise BackendError(
+                    f"AWS could not read logs for stream {stream!r}: {exc}", backend=self._name
+                ) from exc
+            for event in response.get("events") or []:
+                yield str(event.get("message", "")).rstrip("\n")
+            next_token = response.get("nextForwardToken")
+            drained = next_token == token
+            token = next_token
+            if drained:
+                if not follow or self._is_terminal(execution_id):
+                    return
+                if deadline is not None and time.monotonic() > deadline:
+                    return
+                time.sleep(poll_interval)
+
+    def _await_log_stream(
+        self, execution_id: ExecutionId, *, deadline: float | None, poll_interval: float
+    ) -> str | None:
+        """Return the CloudWatch log stream name, waiting until the job has one."""
+        while True:
+            _, job = self._describe(execution_id)
+            stream = (job.get("container") or {}).get("logStreamName")
+            if stream:
+                return str(stream)
+            if map_batch_state(job)[0].is_terminal:
+                return None  # terminal without ever producing a stream
+            if deadline is not None and time.monotonic() >= deadline:
+                return None
+            time.sleep(poll_interval)
+
+    def _is_terminal(self, execution_id: ExecutionId) -> bool:
+        return map_batch_state(self._describe(execution_id)[1])[0].is_terminal
+
 
 def _resource_requirements(spec: JobSpec) -> list[dict[str, str]]:
     """Translate portable resources into Batch's ``resourceRequirements``."""
@@ -335,6 +433,17 @@ def _log_stream(job: dict[str, Any]) -> str | None:
     return f"cloudwatch:/aws/batch/job:{stream}" if stream else None
 
 
+def _is_not_found(exc: Exception) -> bool:
+    """Whether a botocore error is a CloudWatch ``ResourceNotFoundException``."""
+    if type(exc).__name__ == "ResourceNotFoundException":
+        return True
+    response = getattr(exc, "response", None)
+    if isinstance(response, dict):
+        code = response.get("Error", {}).get("Code")
+        return bool(code == "ResourceNotFoundException")
+    return False
+
+
 def make_backend(**options: Any) -> BatchJobBackend:
     """Entry point for ``{"factory": "aws-batch", ...}`` configuration."""
     return BatchJobBackend(
@@ -342,6 +451,8 @@ def make_backend(**options: Any) -> BatchJobBackend:
         job_queue=options.get("job_queue"),
         job_definition=options.get("job_definition"),
         client=options.get("client"),
+        logs_client=options.get("logs_client"),
+        log_group=str(options.get("log_group", "/aws/batch/job")),
         name=str(options.get("name", "batch")),
         tracked_ids=int(options.get("tracked_ids", 10_000)),
     )

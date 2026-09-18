@@ -53,12 +53,13 @@ Ordered by how much each would teach us about whether the abstraction holds.
    with `asyncio.to_thread`. An adapter built on `aiobotocore` or an async
    Procrastinate connector could skip the thread entirely — a performance
    refinement, not a correctness one.
-2. **Streaming logs for the *cloud* job backends.** The local subprocess backend
-   now streams (`stream_logs`); Cloud Run, AWS Batch and Kubernetes still expose
-   only a log *location*, and wiring each provider's own log stream behind the
-   same method is the remaining gap.
 
 Recently shipped from this list:
+
+- **Streaming logs for the *cloud* job backends.** Kubernetes (`CoreV1Api`),
+  AWS Batch (CloudWatch) and Cloud Run (Cloud Logging) now implement
+  `stream_logs`/`logs`, matching the local subprocess backend. Each waits for its
+  log source to exist and follows the output until the job terminates.
 
 - **`taskferry-celery`** — a Celery task backend. `TaskSpec` reached Celery
   unchanged, so the task port held.

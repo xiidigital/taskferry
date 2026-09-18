@@ -211,6 +211,78 @@ class TestBatchCapabilities:
         assert execution.state is ExecutionState.QUEUED
 
 
+class ResourceNotFoundException(Exception):
+    pass
+
+
+class FakeLogsClient:
+    def __init__(self, messages: list[str], *, missing: bool = False) -> None:
+        self._events = [{"message": m} for m in messages]
+        self.missing = missing
+        self.calls = 0
+
+    def get_log_events(
+        self,
+        *,
+        logGroupName: str,
+        logStreamName: str,
+        startFromHead: bool,
+        nextToken: str | None = None,
+    ) -> dict[str, Any]:
+        self.calls += 1
+        if self.missing:
+            raise ResourceNotFoundException()
+        if nextToken is None:
+            return {"events": self._events, "nextForwardToken": "t1"}
+        return {"events": [], "nextForwardToken": nextToken}
+
+
+def _running_job_with_stream(status: str = "SUCCEEDED") -> dict[str, Any]:
+    return {"status": status, "jobName": "j", "container": {"logStreamName": "js"}}
+
+
+class TestBatchLogStreaming:
+    """`stream_logs` tails a Batch job's CloudWatch output."""
+
+    def test_streams_cloudwatch_events_until_terminal(self) -> None:
+        logs = FakeLogsClient(["line 0", "line 1", "line 2"])
+        backend = batch_backend(
+            client=FakeBatchClient(job=_running_job_with_stream()), logs_client=logs
+        )
+        execution = backend.submit(JobSpec(job="j"))
+        assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=5)) == [
+            "line 0",
+            "line 1",
+            "line 2",
+        ]
+
+    def test_logs_reads_once(self) -> None:
+        logs = FakeLogsClient(["only line"])
+        backend = batch_backend(
+            client=FakeBatchClient(job=_running_job_with_stream()), logs_client=logs
+        )
+        execution = backend.submit(JobSpec(job="j"))
+        assert backend.logs(execution.id) == "only line"
+
+    def test_a_terminal_job_without_a_stream_yields_nothing(self) -> None:
+        logs = FakeLogsClient(["unused"])
+        backend = batch_backend(
+            client=FakeBatchClient(job={"status": "FAILED", "jobName": "j"}), logs_client=logs
+        )
+        execution = backend.submit(JobSpec(job="j"))
+        assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=5)) == []
+        assert logs.calls == 0
+
+    def test_a_missing_log_group_yields_nothing(self) -> None:
+        logs = FakeLogsClient(["never"], missing=True)
+        backend = batch_backend(
+            client=FakeBatchClient(job=_running_job_with_stream()), logs_client=logs
+        )
+        execution = backend.submit(JobSpec(job="j"))
+        assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=5)) == []
+        assert logs.calls == 1
+
+
 # --------------------------------------------------------------------------- #
 # Kubernetes
 # --------------------------------------------------------------------------- #
@@ -369,6 +441,75 @@ class TestKubernetesStateMapping:
         cancelled = backend.cancel(execution.id)
         assert api.deleted
         assert cancelled.state is ExecutionState.CANCELLED
+
+
+class _FakePodLog:
+    """A stand-in for the urllib3 response returned with _preload_content=False."""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+        self.released = False
+
+    def stream(self) -> Any:
+        yield from self._chunks
+
+    def release_conn(self) -> None:
+        self.released = True
+
+
+class FakeCoreV1Api:
+    def __init__(self, chunks: list[bytes], *, pod_appears_after: int = 0) -> None:
+        self._chunks = chunks
+        self._pod_appears_after = pod_appears_after
+        self.list_calls = 0
+        self.log_calls: list[dict[str, Any]] = []
+        self.last_response: _FakePodLog | None = None
+
+    def list_namespaced_pod(self, *, namespace: str, label_selector: str) -> Any:
+        self.list_calls += 1
+        if self.list_calls <= self._pod_appears_after:
+            return SimpleNamespace(items=[])
+        return SimpleNamespace(items=[SimpleNamespace(metadata=SimpleNamespace(name="pod-1"))])
+
+    def read_namespaced_pod_log(
+        self, *, name: str, namespace: str, follow: bool, _preload_content: bool
+    ) -> Any:
+        self.log_calls.append({"name": name, "follow": follow})
+        self.last_response = _FakePodLog(self._chunks)
+        return self.last_response
+
+
+class TestKubernetesLogStreaming:
+    """`stream_logs` follows a Job's pod output through CoreV1Api."""
+
+    def test_streams_lines_across_chunk_boundaries(self) -> None:
+        core = FakeCoreV1Api([b"line 0\nline ", b"1\nline 2\n"])
+        backend = k8s_backend(core_api=core)
+        execution = backend.submit(JobSpec(job="j", image="i"))
+        assert list(backend.stream_logs(execution.id, timeout=5)) == ["line 0", "line 1", "line 2"]
+        assert core.log_calls[0]["follow"] is True
+        assert core.last_response is not None and core.last_response.released
+
+    def test_logs_reads_once_without_following(self) -> None:
+        core = FakeCoreV1Api([b"only line\n"])
+        backend = k8s_backend(core_api=core)
+        execution = backend.submit(JobSpec(job="j", image="i"))
+        assert backend.logs(execution.id) == "only line"
+        assert core.log_calls[0]["follow"] is False
+
+    def test_waits_for_a_pod_to_be_scheduled(self) -> None:
+        core = FakeCoreV1Api([b"ready\n"], pod_appears_after=2)
+        backend = k8s_backend(core_api=core)
+        execution = backend.submit(JobSpec(job="j", image="i"))
+        assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=5)) == ["ready"]
+        assert core.list_calls == 3
+
+    def test_no_pod_before_timeout_yields_nothing(self) -> None:
+        core = FakeCoreV1Api([b"never\n"], pod_appears_after=1000)
+        backend = k8s_backend(core_api=core)
+        execution = backend.submit(JobSpec(job="j", image="i"))
+        assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=0.0)) == []
+        assert core.log_calls == []
 
 
 # --------------------------------------------------------------------------- #
