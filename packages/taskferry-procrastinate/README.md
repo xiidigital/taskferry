@@ -1,6 +1,6 @@
 # taskferry-procrastinate
 
-Run [Taskferry](https://github.com/taskferry/taskferry) tasks on
+Run [Taskferry](https://github.com/xiidigital/taskferry) tasks on
 [Procrastinate](https://procrastinate.readthedocs.io) — a durable, PostgreSQL-backed
 task engine.
 

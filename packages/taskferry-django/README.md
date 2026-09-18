@@ -1,6 +1,6 @@
 # taskferry-django
 
-Django integration for [Taskferry](https://github.com/taskferry/taskferry).
+Django integration for [Taskferry](https://github.com/xiidigital/taskferry).
 
 ```mermaid
 flowchart BT

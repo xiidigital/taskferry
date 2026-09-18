@@ -94,7 +94,7 @@ flowchart TB
 | the core does not grow engine features | vocabulary scan |
 
 All six live in
-[`packages/taskferry/tests/test_architecture.py`](https://github.com/taskferry/taskferry/blob/main/packages/taskferry/tests/test_architecture.py)
+[`packages/taskferry/tests/test_architecture.py`](https://github.com/xiidigital/taskferry/blob/main/packages/taskferry/tests/test_architecture.py)
 and run on every commit.
 
 ## Import weight

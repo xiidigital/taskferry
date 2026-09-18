@@ -32,9 +32,9 @@ kubernetes = "taskferry_jobs.kubernetes:make_backend"
 containerapps = "taskferry_jobs.azure:make_backend"
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-jobs"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev/jobs"
-Source = "https://github.com/taskferry/taskferry-jobs"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_jobs"]

@@ -27,9 +27,9 @@ aws = ["boto3>=1.34"]
 kubernetes = ["kubernetes>=29.0"]
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-scheduler"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev/scheduler"
-Source = "https://github.com/taskferry/taskferry-scheduler"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_scheduler"]

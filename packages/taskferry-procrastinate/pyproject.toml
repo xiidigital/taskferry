@@ -30,9 +30,9 @@ procrastinate = ["procrastinate>=2.0"]
 procrastinate = "taskferry_procrastinate:make_backend"
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-procrastinate"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev"
-Source = "https://github.com/taskferry/taskferry-procrastinate"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_procrastinate"]

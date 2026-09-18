@@ -28,9 +28,9 @@ azure = ["azure-identity>=1.17", "azure-eventgrid>=4.20"]
 kafka = ["confluent-kafka>=2.4"]
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-events"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev/events"
-Source = "https://github.com/taskferry/taskferry-events"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_events"]

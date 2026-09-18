@@ -79,7 +79,7 @@ taskferry doctor
 ## Documentation
 
 Full documentation, ADRs and the migration guide live in the
-[repository](https://github.com/taskferry/taskferry).
+[repository](https://github.com/xiidigital/taskferry).
 
 ## License
 

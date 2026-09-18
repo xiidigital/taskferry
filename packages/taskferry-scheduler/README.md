@@ -1,6 +1,6 @@
 # taskferry-scheduler
 
-Portable **"when to fire"** triggering. Ships alongside [Taskferry](https://github.com/taskferry/taskferry),
+Portable **"when to fire"** triggering. Ships alongside [Taskferry](https://github.com/xiidigital/taskferry),
 the portable execution layer. Plain Python, no Django required.
 
 A **Schedule** decides *when*; it never runs business logic itself. It triggers

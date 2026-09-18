@@ -24,9 +24,9 @@ classifiers = [
 dependencies = ["taskferry>=0.2,<0.3", "django>=5.1"]
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-django"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev/django"
-Source = "https://github.com/taskferry/taskferry-django"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_django"]

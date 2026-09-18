@@ -65,7 +65,7 @@ def extract_metadata(dataset_id: int) -> dict:
 ```
 
 Runnable version:
-[`examples/composed-flow`](https://github.com/taskferry/taskferry/tree/main/examples/composed-flow).
+[`examples/composed-flow`](https://github.com/xiidigital/taskferry/tree/main/examples/composed-flow).
 
 ## Event → Task and Event → Job
 

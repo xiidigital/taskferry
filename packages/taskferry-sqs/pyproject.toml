@@ -30,9 +30,9 @@ aws = ["boto3>=1.34"]
 sqs = "taskferry_sqs:make_backend"
 
 [project.urls]
-Homepage = "https://github.com/taskferry/taskferry-sqs"
+Homepage = "https://github.com/xiidigital/taskferry"
 Documentation = "https://taskferry.dev"
-Source = "https://github.com/taskferry/taskferry-sqs"
+Source = "https://github.com/xiidigital/taskferry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taskferry_sqs"]
