@@ -39,7 +39,7 @@ runtime.jobs.submit("train", resources=Resources(gpu=1), profile="cloudrun")
 **Duck typing — "does the backend have a `.cancel` method?"** Cannot express "can
 cancel a queued task but not a running one", cannot be inspected without
 instantiating the backend (which may need credentials), and cannot be reported by
-`taskport capabilities`. Rejected.
+`taskferry capabilities`. Rejected.
 
 **Optional protocols (`SupportsCancel`, `SupportsResult`).** Types the presence of
 methods correctly, but leaves the runtime doing `isinstance` checks against a

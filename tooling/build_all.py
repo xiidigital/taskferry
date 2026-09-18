@@ -1,4 +1,4 @@
-"""Build wheels + sdists for every Taskport package into ``dist/``.
+"""Build wheels + sdists for every Taskferry package into ``dist/``.
 
     uv run python tooling/build_all.py
 

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "taskferry-otel"
+version = "0.1.0"
+description = "OpenTelemetry bridge for Taskferry — turn taskferry.* spans into real OTel spans."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Taskferry authors" }]
+keywords = ["taskferry", "opentelemetry", "otel", "tracing", "observability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "taskferry>=0.2,<0.3",
+    "opentelemetry-api>=1.27",
+]
+
+[project.urls]
+Homepage = "https://github.com/taskferry/taskferry-otel"
+Documentation = "https://taskferry.dev"
+Source = "https://github.com/taskferry/taskferry-otel"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taskferry_otel"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "CHANGELOG.md", "LICENSE"]

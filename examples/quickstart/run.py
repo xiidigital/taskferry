@@ -12,11 +12,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import work
 
-from taskport import Capability, ExecutionState, Taskport
+from taskferry import Capability, ExecutionState, Taskferry
 
 
 def main() -> None:
-    runtime = Taskport.local()
+    runtime = Taskferry.local()
 
     # -- Inline: run it here, now. Accepts any callable, even a lambda. ------- #
     inline = runtime.inline.submit(lambda a, b: a + b, 20, 22)

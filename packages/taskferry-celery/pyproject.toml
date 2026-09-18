@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "taskferry-celery"
+version = "0.1.0"
+description = "Celery task backend for Taskferry — enqueue Taskferry tasks onto a Celery app."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Taskferry authors" }]
+keywords = ["taskferry", "celery", "tasks", "queue"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = ["taskferry>=0.2,<0.3"]
+
+[project.optional-dependencies]
+celery = ["celery>=5.3"]
+
+[project.entry-points."taskferry.backends"]
+celery = "taskferry_celery:make_backend"
+
+[project.urls]
+Homepage = "https://github.com/taskferry/taskferry-celery"
+Documentation = "https://taskferry.dev"
+Source = "https://github.com/taskferry/taskferry-celery"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taskferry_celery"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "CHANGELOG.md", "LICENSE"]

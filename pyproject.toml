@@ -1,21 +1,21 @@
-# Taskport development workspace (virtual root — not published).
+# Taskferry development workspace (virtual root — not published).
 #
 # Every distribution lives under packages/* and is independently buildable and
 # releasable. This root only wires the uv workspace and the shared dev tooling.
 #
 # The dependency direction the layout enforces:
 #
-#   taskport                    <- no dependencies at all, ever
-#     ^-- taskport-procrastinate
-#     ^-- taskport-cloudtasks
-#     ^-- taskport-cloudrun
-#     ^-- taskport-sqs
-#     ^-- taskport-servicebus
-#     ^-- taskport-dramatiq
-#     ^-- taskport-jobs
-#     ^-- taskport-django
-#     ^-- taskport-events
-#     ^-- taskport-scheduler
+#   taskferry                    <- no dependencies at all, ever
+#     ^-- taskferry-procrastinate
+#     ^-- taskferry-cloudtasks
+#     ^-- taskferry-cloudrun
+#     ^-- taskferry-sqs
+#     ^-- taskferry-servicebus
+#     ^-- taskferry-dramatiq
+#     ^-- taskferry-jobs
+#     ^-- taskferry-django
+#     ^-- taskferry-events
+#     ^-- taskferry-scheduler
 #
 # See docs/architecture/refactor-2026.md and docs/adr/0013-packaging-strategy.md.
 
@@ -23,19 +23,19 @@
 members = ["packages/*"]
 
 [tool.uv.sources]
-taskport = { workspace = true }
-taskport-procrastinate = { workspace = true }
-taskport-cloudtasks = { workspace = true }
-taskport-cloudrun = { workspace = true }
-taskport-celery = { workspace = true }
-taskport-otel = { workspace = true }
-taskport-dramatiq = { workspace = true }
-taskport-servicebus = { workspace = true }
-taskport-sqs = { workspace = true }
-taskport-jobs = { workspace = true }
-taskport-events = { workspace = true }
-taskport-scheduler = { workspace = true }
-taskport-django = { workspace = true }
+taskferry = { workspace = true }
+taskferry-procrastinate = { workspace = true }
+taskferry-cloudtasks = { workspace = true }
+taskferry-cloudrun = { workspace = true }
+taskferry-celery = { workspace = true }
+taskferry-otel = { workspace = true }
+taskferry-dramatiq = { workspace = true }
+taskferry-servicebus = { workspace = true }
+taskferry-sqs = { workspace = true }
+taskferry-jobs = { workspace = true }
+taskferry-events = { workspace = true }
+taskferry-scheduler = { workspace = true }
+taskferry-django = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -52,19 +52,19 @@ dev = [
     # For building the documentation site.
     "mkdocs-material>=9.5",
     # Workspace members, installed editable for local development/testing.
-    "taskport",
-    "taskport-procrastinate",
-    "taskport-cloudtasks",
-    "taskport-cloudrun",
-    "taskport-sqs",
-    "taskport-servicebus",
-    "taskport-dramatiq",
-    "taskport-celery",
-    "taskport-otel",
-    "taskport-jobs",
-    "taskport-events",
-    "taskport-scheduler",
-    "taskport-django",
+    "taskferry",
+    "taskferry-procrastinate",
+    "taskferry-cloudtasks",
+    "taskferry-cloudrun",
+    "taskferry-sqs",
+    "taskferry-servicebus",
+    "taskferry-dramatiq",
+    "taskferry-celery",
+    "taskferry-otel",
+    "taskferry-jobs",
+    "taskferry-events",
+    "taskferry-scheduler",
+    "taskferry-django",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -91,19 +91,19 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 show_error_codes = true
 mypy_path = [
-    "packages/taskport/src",
-    "packages/taskport-procrastinate/src",
-    "packages/taskport-cloudtasks/src",
-    "packages/taskport-cloudrun/src",
-    "packages/taskport-sqs/src",
-    "packages/taskport-servicebus/src",
-    "packages/taskport-dramatiq/src",
-    "packages/taskport-celery/src",
-    "packages/taskport-otel/src",
-    "packages/taskport-jobs/src",
-    "packages/taskport-events/src",
-    "packages/taskport-scheduler/src",
-    "packages/taskport-django/src",
+    "packages/taskferry/src",
+    "packages/taskferry-procrastinate/src",
+    "packages/taskferry-cloudtasks/src",
+    "packages/taskferry-cloudrun/src",
+    "packages/taskferry-sqs/src",
+    "packages/taskferry-servicebus/src",
+    "packages/taskferry-dramatiq/src",
+    "packages/taskferry-celery/src",
+    "packages/taskferry-otel/src",
+    "packages/taskferry-jobs/src",
+    "packages/taskferry-events/src",
+    "packages/taskferry-scheduler/src",
+    "packages/taskferry-django/src",
 ]
 explicit_package_bases = true
 namespace_packages = true
@@ -140,7 +140,7 @@ ignore_missing_imports = true
 # Django ships no py.typed, so its symbols are Any. Relax the two strict checks
 # that this forces, on the Django-facing package only.
 [[tool.mypy.overrides]]
-module = ["taskport_django.*"]
+module = ["taskferry_django.*"]
 disallow_subclassing_any = false
 disallow_untyped_decorators = false
 
@@ -154,26 +154,26 @@ asyncio_mode = "auto"
 addopts = "-ra --import-mode=importlib"
 DJANGO_SETTINGS_MODULE = "tests_settings"
 pythonpath = [
-    "packages/taskport-django/tests",
-    "packages/taskport/tests",
+    "packages/taskferry-django/tests",
+    "packages/taskferry/tests",
 ]
 
 [tool.coverage.run]
 branch = true
 source = [
-    "taskport",
-    "taskport_procrastinate",
-    "taskport_cloudtasks",
-    "taskport_cloudrun",
-    "taskport_sqs",
-    "taskport_servicebus",
-    "taskport_dramatiq",
-    "taskport_celery",
-    "taskport_otel",
-    "taskport_jobs",
-    "taskport_events",
-    "taskport_scheduler",
-    "taskport_django",
+    "taskferry",
+    "taskferry_procrastinate",
+    "taskferry_cloudtasks",
+    "taskferry_cloudrun",
+    "taskferry_sqs",
+    "taskferry_servicebus",
+    "taskferry_dramatiq",
+    "taskferry_celery",
+    "taskferry_otel",
+    "taskferry_jobs",
+    "taskferry_events",
+    "taskferry_scheduler",
+    "taskferry_django",
 ]
 
 [tool.coverage.report]

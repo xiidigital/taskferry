@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from taskport_scheduler import (
+from taskferry_scheduler import (
     CallableTarget,
     IntervalTrigger,
     LocalScheduler,

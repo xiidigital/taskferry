@@ -5,7 +5,7 @@
 
 ## Context
 
-Taskport needs to be usable from async code. A Django async view, a FastAPI
+Taskferry needs to be usable from async code. A Django async view, a FastAPI
 handler and a Starlette endpoint all run inside an event loop, and a synchronous
 `submit()` blocks it — briefly for Procrastinate's `defer()`, less briefly for a
 Cloud Tasks HTTP round-trip, and unacceptably for `handle.wait(300)`.
@@ -18,7 +18,7 @@ So both surfaces have to exist. The question is what they are called.
 
 ## Decision
 
-Two runtime classes, `Taskport` and `AsyncTaskport`, with **identical method
+Two runtime classes, `Taskferry` and `AsyncTaskferry`, with **identical method
 names**. The difference between the two surfaces is `await`, not the vocabulary.
 
 ```python
@@ -29,7 +29,7 @@ handle = await runtime.tasks.submit("myapp.tasks:send_email", 42)
 execution = await handle.wait(30)
 ```
 
-`AsyncTaskport` **wraps** a sync runtime rather than duplicating it. Routing,
+`AsyncTaskferry` **wraps** a sync runtime rather than duplicating it. Routing,
 configuration, the backend cache, the execution index, hooks and the function
 registry are the same objects, so a process serving both surfaces has one set of
 backends and one connection pool.
@@ -45,7 +45,7 @@ correctness does not depend on it doing so.
 
 ## Alternatives considered
 
-**`a`-prefixed methods on the single `Taskport` class** — `asubmit`, `aget`,
+**`a`-prefixed methods on the single `Taskferry` class** — `asubmit`, `aget`,
 `aresult`. This is Django's convention (`aenqueue`, `aget_result`) and was the
 first choice. It breaks on `wait`: `await` is a keyword, so the prefixed form has
 nowhere to go. `await_()` reads as `await handle.await_()`, `awaited()` is past
@@ -73,7 +73,7 @@ instead means every adapter has a correct async path from the day it is written.
 
 ## Consequences
 
-- `from taskport import AsyncTaskport` is part of the public API.
+- `from taskferry import AsyncTaskferry` is part of the public API.
 - Every backend has `asubmit`/`aget`/`acancel`/`aresult`/`await_`, tested by the
   contract suite, and gets a non-blocking implementation for free.
 - Two tests keep the "real async path" claim honest, because both would pass

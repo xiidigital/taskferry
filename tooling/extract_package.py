@@ -1,6 +1,6 @@
 """Dry-run helper for extracting a package to its own repository (ADR-0014).
 
-    uv run python tooling/extract_package.py taskport-jobs --dry-run
+    uv run python tooling/extract_package.py taskferry-jobs --dry-run
 
 This performs NO git operations and publishes nothing (section 61). It verifies
 the package is self-contained and prints the exact commands a maintainer would
@@ -26,15 +26,15 @@ def check_self_contained(package_dir: Path) -> list[str]:
         problems.append("missing src/ directory")
     if not (package_dir / "tests").is_dir():
         problems.append("missing tests/ directory")
-    # A taskport/__init__.py would shadow the namespace (ADR-0013).
-    if (package_dir / "src" / "taskport" / "__init__.py").exists():
-        problems.append("src/taskport/__init__.py present — breaks the namespace")
+    # A taskferry/__init__.py would shadow the namespace (ADR-0013).
+    if (package_dir / "src" / "taskferry" / "__init__.py").exists():
+        problems.append("src/taskferry/__init__.py present — breaks the namespace")
     return problems
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("package", help="distribution name, e.g. taskport-jobs")
+    parser.add_argument("package", help="distribution name, e.g. taskferry-jobs")
     parser.add_argument(
         "--dry-run",
         action="store_true",

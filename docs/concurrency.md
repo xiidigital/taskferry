@@ -4,20 +4,20 @@ Two questions this page answers precisely, because getting either wrong produces
 bugs that only appear under load:
 
 1. **What happens to an `async def` function?**
-2. **Which Taskport objects can be shared, and across what?**
+2. **Which Taskferry objects can be shared, and across what?**
 
 ## The async model
 
-Taskport has **two runtimes with the same vocabulary**:
+Taskferry has **two runtimes with the same vocabulary**:
 
 ```python
-from taskport import Taskport, AsyncTaskport
+from taskferry import Taskferry, AsyncTaskferry
 
-runtime = Taskport.local()
+runtime = Taskferry.local()
 handle = runtime.tasks.submit("myapp.tasks:send_email", 42)
 execution = handle.wait(30)
 
-runtime = AsyncTaskport.local()
+runtime = AsyncTaskferry.local()
 handle = await runtime.tasks.submit("myapp.tasks:send_email", 42)
 execution = await handle.wait(30)
 ```
@@ -34,14 +34,14 @@ absurd.
 
 ### One process, both surfaces
 
-`AsyncTaskport` **wraps** a sync runtime rather than duplicating it. Routing,
+`AsyncTaskferry` **wraps** a sync runtime rather than duplicating it. Routing,
 configuration, backends, the execution index, hooks and the function registry are
 the same objects, so a Django project with async views and sync management
 commands gets one connection pool, not two:
 
 ```python
-runtime = Taskport.local()
-aio = AsyncTaskport(runtime)  # shares everything
+runtime = Taskferry.local()
+aio = AsyncTaskferry(runtime)  # shares everything
 
 sync_handle = runtime.tasks.submit(fn, 1)  # from a command
 async_handle = await aio.tasks.submit(fn, 1)  # from an async view
@@ -65,7 +65,7 @@ runtime.tasks.submit(fetch_and_store, "https://example.com")  # awaited on the w
 ```
 
 Backends that can run them advertise
-:attr:`~taskport.Capability.ASYNC_CALLABLE`. Detection unwraps
+:attr:`~taskferry.Capability.ASYNC_CALLABLE`. Detection unwraps
 `functools.partial` and looks through `__call__`, so async callable *objects* work
 too, not just plain `async def`.
 
@@ -86,18 +86,18 @@ flowchart TD
 The second branch matters. Calling `asyncio.run()` inside a running loop raises
 `RuntimeError`, so a naive implementation would explode the first time someone
 called `runtime.inline.submit(some_async_fn)` from inside an async web handler.
-Taskport instead runs the coroutine on its own loop in a worker thread and blocks
+Taskferry instead runs the coroutine on its own loop in a worker thread and blocks
 for the result — which is the honest behaviour, because `submit()` is synchronous
 by contract.
 
-**Blocking a running event loop is bad**, which is exactly why `AsyncTaskport`
+**Blocking a running event loop is bad**, which is exactly why `AsyncTaskferry`
 exists. Inside async code, use it — the sync runtime's behaviour above is the
 fallback for when someone reaches for the wrong one, not the recommended path.
 
 ### The async path is real, not cosmetic
 
 Every backend has `asubmit` / `aget` / `acancel` / `aresult` / `await_`.
-:class:`~taskport.ports.BaseBackend` derives them from the sync methods with
+:class:`~taskferry.ports.BaseBackend` derives them from the sync methods with
 `asyncio.to_thread`, so the caller's event loop keeps running — it is a genuine
 async path, not an `async def` painted over a blocking call. An adapter whose
 client is natively async overrides them and skips the thread; nothing depends on
@@ -118,17 +118,17 @@ names; adapter authors do.
 ### Django
 
 `django.tasks` exposes `aenqueue()`, which Django implements over `enqueue()` with
-`sync_to_async(thread_sensitive=True)`. `TaskportBackend` inherits that, so
+`sync_to_async(thread_sensitive=True)`. `TaskferryBackend` inherits that, so
 `await my_task.aenqueue(42)` works and does the right thing.
 
 For jobs, inline work, or anything outside the `django.tasks` API, use
-`AsyncTaskport` directly:
+`AsyncTaskferry` directly:
 
 ```python
-from taskport import AsyncTaskport
-from taskport_django import get_runtime
+from taskferry import AsyncTaskferry
+from taskferry_django import get_runtime
 
-aio = AsyncTaskport(get_runtime())  # the project's shared runtime
+aio = AsyncTaskferry(get_runtime())  # the project's shared runtime
 
 
 async def build_view(request):
@@ -146,12 +146,12 @@ async def build_view(request):
 | `Execution` · `ExecutionResult` | none — frozen snapshot | yes | yes, by value |
 | `RetryPolicy` · `TimeoutPolicy` · `Resources` | none — frozen | yes | yes, by value |
 | `Route` · `Router` | none — immutable | yes | yes, by value |
-| `TaskportConfig` · `BackendConfig` | none — frozen | yes | yes, by value |
+| `TaskferryConfig` · `BackendConfig` | none — frozen | yes | yes, by value |
 | `Capability` · `CapabilitySet` | none — frozen, hashable | yes | yes, by value |
 | `HookChain` | none — immutable tuple | yes | no (hooks are live objects) |
 | `Correlation` | none — frozen | yes | yes, via `to_headers()` |
-| `Taskport` runtime | backend cache, execution index | **yes** — lock-guarded | no |
-| `AsyncTaskport` | none of its own — wraps a `Taskport` | yes | no |
+| `Taskferry` runtime | backend cache, execution index | **yes** — lock-guarded | no |
+| `AsyncTaskferry` | none of its own — wraps a `Taskferry` | yes | no |
 | `ExecutionHandle` | cached snapshot | **yes** — lock-guarded | no — carry `handle.id` |
 | `AsyncExecutionHandle` | cached snapshot | one loop — `asyncio.Lock` | no — carry `handle.id` |
 | `ExternalIdIndex` | the id map | **yes** — lock-guarded | no |
@@ -176,7 +176,7 @@ in the public API.
 
 ### The runtime is safe to share
 
-A single `Taskport` is meant to be held for the life of the process and used from
+A single `Taskferry` is meant to be held for the life of the process and used from
 every thread — which is exactly what a web server does. Specifically:
 
 - **backend construction** is guarded by an `RLock`, so a backend is built
@@ -233,7 +233,7 @@ locally, where it is cheap.
 
 ### Cancellation, honestly
 
-Python cannot safely interrupt a thread mid-call, and Taskport does not pretend
+Python cannot safely interrupt a thread mid-call, and Taskferry does not pretend
 otherwise:
 
 - **`ThreadTaskBackend` / `ProcessTaskBackend`** cancel only work that has not

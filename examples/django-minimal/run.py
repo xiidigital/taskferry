@@ -1,4 +1,4 @@
-"""The standard django.tasks API, running on a Taskport backend.
+"""The standard django.tasks API, running on a Taskferry backend.
 
     uv run python examples/django-minimal/run.py
 
@@ -19,14 +19,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 settings.configure(
     DEBUG=True,
     USE_TZ=True,
-    INSTALLED_APPS=["django.contrib.contenttypes", "django.contrib.auth", "taskport_django"],
+    INSTALLED_APPS=["django.contrib.contenttypes", "django.contrib.auth", "taskferry_django"],
     DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
     # The standard Django setting, pointed at the bridge.
-    TASKS={"default": {"BACKEND": "taskport_django.TaskportBackend"}},
-    # And the Taskport configuration it bridges to. Swap "thread" for
+    TASKS={"default": {"BACKEND": "taskferry_django.TaskferryBackend"}},
+    # And the Taskferry configuration it bridges to. Swap "thread" for
     # {"factory": "procrastinate", "app": "myapp.tasks:app"} and nothing else
     # in this file — or in your application — changes.
-    TASKPORT={
+    TASKFERRY={
         "backends": {
             "now": {"factory": "inline"},
             "fast": {"factory": "thread", "max_workers": 2},
@@ -40,20 +40,20 @@ django.setup()
 
 import app_tasks  # noqa: E402
 
-from taskport_django import get_runtime  # noqa: E402
+from taskferry_django import get_runtime  # noqa: E402
 
 
 def main() -> None:
     runtime = get_runtime()
 
-    # Standard Django. No Taskport import at the call site.
+    # Standard Django. No Taskferry import at the call site.
     result = app_tasks.resize_image.enqueue(42, width=1200)
     print(f"enqueued via django.tasks: id={result.id} status={result.status}")
 
-    # Taskport's own handle for the same execution, with the fuller vocabulary.
+    # Taskferry's own handle for the same execution, with the fuller vocabulary.
     handle = runtime.get(result.id)
     handle.wait(10)
-    print(f"taskport handle:           state={handle.state.value} value={handle.result().value}")
+    print(f"taskferry handle:           state={handle.state.value} value={handle.result().value}")
 
     metadata = app_tasks.extract_metadata.enqueue(7)
     runtime.get(metadata.id).wait(10)
@@ -61,18 +61,18 @@ def main() -> None:
 
     # The bridge answers "what can this backend do?" from the routed engine,
     # not from a hardcoded flag.
-    from taskport_django import TaskportBackend
+    from taskferry_django import TaskferryBackend
 
-    backend = TaskportBackend("default", {})
-    caps = ", ".join(sorted(str(c) for c in backend.taskport_capabilities("metadata")))
+    backend = TaskferryBackend("default", {})
+    caps = ", ".join(sorted(str(c) for c in backend.taskferry_capabilities("metadata")))
     print(f"\ncapabilities behind queue 'metadata': {caps}")
 
     # Every configured backend is actually built here, so a missing adapter or a
     # missing option is caught at `manage.py check` time rather than at 3am.
     print("\nsystem checks:")
-    from taskport_django.checks import check_taskport
+    from taskferry_django.checks import check_taskferry
 
-    messages = check_taskport()
+    messages = check_taskferry()
     for message in messages:
         print(f"  [{message.id}] {message.msg}")
     if not messages:

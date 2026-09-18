@@ -1,9 +1,9 @@
-# Taskport documentation
+# Taskferry documentation
 
-Taskport is a **portable execution layer for Python** — it models units of work,
+Taskferry is a **portable execution layer for Python** — it models units of work,
 picks the right kind of execution, and routes them to engines that already exist.
 
-Start with the [repository README](https://github.com/taskport/taskport#readme)
+Start with the [repository README](https://github.com/taskferry/taskferry#readme)
 for the tour. This directory holds the detail.
 
 ## Architecture
@@ -28,7 +28,7 @@ for the tour. This directory holds the detail.
   Publishing.
 - [CI](engineering/ci.md) — the four gates and how they map to the invariants.
 
-See also [`CONTRIBUTING.md`](https://github.com/taskport/taskport/blob/main/CONTRIBUTING.md)
+See also [`CONTRIBUTING.md`](https://github.com/taskferry/taskferry/blob/main/CONTRIBUTING.md)
 at the repository root for setup.
 
 ## Decisions (ADRs)
@@ -39,8 +39,8 @@ ADR that replaced them; the old numbers map forward in
 
 **Foundations**
 
-1. [Taskport is a portable execution layer](adr/0001-portable-execution-layer.md)
-2. [Taskport does not implement a task queue](adr/0002-not-a-task-queue.md)
+1. [Taskferry is a portable execution layer](adr/0001-portable-execution-layer.md)
+2. [Taskferry does not implement a task queue](adr/0002-not-a-task-queue.md)
 3. [Task and Job are separate primitives](adr/0003-task-and-job.md)
 4. [Keep the shared core small](adr/0004-core-scope.md)
 

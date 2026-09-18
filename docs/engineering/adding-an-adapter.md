@@ -1,21 +1,21 @@
 # Adding an adapter
 
-An adapter maps one engine (Procrastinate, Cloud Run Jobs, SQS, …) onto a Taskport
+An adapter maps one engine (Procrastinate, Cloud Run Jobs, SQS, …) onto a Taskferry
 port. This is the recipe; the contract suite tells you when you are done.
 
 ## 1. A new distribution
 
 One engine, one distribution, one top-level module (ADR-0013):
-`packages/taskport-<engine>/` shipping module `taskport_<engine>`. Copy the shape
-of an existing adapter (`taskport-procrastinate` for a task backend,
-`taskport-cloudrun` for a job backend). Each has its own `pyproject.toml`,
+`packages/taskferry-<engine>/` shipping module `taskferry_<engine>`. Copy the shape
+of an existing adapter (`taskferry-procrastinate` for a task backend,
+`taskferry-cloudrun` for a job backend). Each has its own `pyproject.toml`,
 `README.md`, `CHANGELOG.md`, `LICENSE`, `src/`, `tests/`, and `py.typed`.
 
-Depend on `taskport` (`>=0.2,<0.3`) and nothing else at runtime. Put the provider
+Depend on `taskferry` (`>=0.2,<0.3`) and nothing else at runtime. Put the provider
 SDK in an **extra**, never in required dependencies:
 
 ```toml
-dependencies = ["taskport>=0.2,<0.3"]
+dependencies = ["taskferry>=0.2,<0.3"]
 [project.optional-dependencies]
 aws = ["boto3>=1.34"]
 ```
@@ -51,25 +51,25 @@ Rules that make it honest:
   (ADR-0005). Never accept-and-ignore.
 - **Import the SDK lazily**, inside the method that needs it, behind the injectable
   `client`. Guard the import and raise `ProviderError` naming the extra to install.
-- **Keep a Taskport id ↔ engine id map** with `taskport.tracking.ExternalIdIndex`
+- **Keep a Taskferry id ↔ engine id map** with `taskferry.tracking.ExternalIdIndex`
   if the engine mints its own ids.
 - **Extract status mapping into a pure function** so it can be unit-tested without
   the engine.
 
 ## 3. Register it for discovery
 
-Advertise the backend through the `taskport.backends` entry-point group so
+Advertise the backend through the `taskferry.backends` entry-point group so
 configuration can name it without importing it eagerly:
 
 ```toml
-[project.entry-points."taskport.backends"]
-myengine = "taskport_myengine:MyBackend"
+[project.entry-points."taskferry.backends"]
+myengine = "taskferry_myengine:MyBackend"
 ```
 
 ## 4. Prove it with the contract
 
 ```python
-from taskport.contract import TaskBackendContract
+from taskferry.contract import TaskBackendContract
 
 
 class TestMyBackend(TaskBackendContract):

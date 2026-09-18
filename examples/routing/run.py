@@ -10,14 +10,14 @@ from __future__ import annotations
 
 import sys
 
-from taskport import ExecutionKind, JobSpec, Taskport, TaskSpec
+from taskferry import ExecutionKind, JobSpec, Taskferry, TaskSpec
 
 # --------------------------------------------------------------------------- #
 # Application code. Written once, never edited again when the engine changes.
 # --------------------------------------------------------------------------- #
 
 
-def business_logic(runtime: Taskport) -> None:
+def business_logic(runtime: Taskferry) -> None:
     """Note what is absent: no provider name, no client, no SDK import."""
     runtime.tasks.submit("tasks:extract_metadata", 42, queue="metadata")
     runtime.tasks.submit("tasks:send_receipt", 42, queue="email")
@@ -50,7 +50,7 @@ PRODUCTION = {
             "factory": "cloudtasks",
             "project": "my-project",
             "location": "europe-west1",
-            "url": "https://svc.run.app/_taskport/execute",
+            "url": "https://svc.run.app/_taskferry/execute",
         },
         "heavy": {"factory": "cloudrun", "project": "my-project", "location": "europe-west1"},
     },
@@ -70,7 +70,7 @@ WORK = [
 ]
 
 
-def show(label: str, runtime: Taskport, *, explain: bool = False) -> None:
+def show(label: str, runtime: Taskferry, *, explain: bool = False) -> None:
     print(f"\n{label}")
     for spec in WORK:
         key = "queue" if spec.kind is ExecutionKind.TASK else "profile"
@@ -81,8 +81,8 @@ def show(label: str, runtime: Taskport, *, explain: bool = False) -> None:
 
 
 def main() -> None:
-    development = Taskport.from_mapping(DEVELOPMENT)
-    production = Taskport.from_mapping(PRODUCTION)
+    development = Taskferry.from_mapping(DEVELOPMENT)
+    production = Taskferry.from_mapping(PRODUCTION)
 
     show("development:", development, explain=True)
     show("production (same application code):", production)

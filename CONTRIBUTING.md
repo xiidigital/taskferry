@@ -1,4 +1,4 @@
-# Contributing to Taskport
+# Contributing to Taskferry
 
 Thanks for helping. This page gets you from a clone to a green test run; the
 detail lives under [`docs/engineering/`](docs/engineering).
@@ -12,19 +12,19 @@ detail lives under [`docs/engineering/`](docs/engineering).
 ## Setup
 
 ```bash
-git clone <repo> taskport && cd taskport
+git clone <repo> taskferry && cd taskferry
 uv sync --all-packages        # one venv, every distribution editable
 ```
 
-That single environment contains `taskport` plus all ten adapter distributions
+That single environment contains `taskferry` plus all ten adapter distributions
 and the dev tooling (pytest, mypy, ruff, mkdocs-material). No per-package venvs.
 
 ## The layout
 
 ```text
 packages/
-  taskport/                 the execution layer — zero dependencies, ever
-  taskport-<provider>/      one adapter distribution per top-level module
+  taskferry/                 the execution layer — zero dependencies, ever
+  taskferry-<provider>/      one adapter distribution per top-level module
 docs/                       architecture, engineering (this), ADRs
 examples/                   runnable end-to-end samples
 tooling/                    build + extraction helpers
@@ -32,7 +32,7 @@ tooling/                    build + extraction helpers
 
 Each `packages/*` is independently buildable and releasable, and structured to be
 extracted to its own repository without edits (ADR-0014). It follows that an
-adapter may depend on `taskport` but **never** on another adapter, and `taskport`
+adapter may depend on `taskferry` but **never** on another adapter, and `taskferry`
 depends on nothing.
 
 ## The loop
@@ -62,6 +62,6 @@ in [coding standards](docs/engineering/coding-standards.md),
 
 ## What not to add
 
-Taskport is a portability layer, not an execution engine. Queues, worker daemons,
+Taskferry is a portability layer, not an execution engine. Queues, worker daemons,
 schedulers-as-daemons, brokers and workflow runtimes are out of scope on purpose —
 see [ADR-0002](docs/adr/0002-not-a-task-queue.md) before proposing one.

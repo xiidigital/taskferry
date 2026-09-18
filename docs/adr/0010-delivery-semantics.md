@@ -15,12 +15,12 @@ on top of whatever is underneath.
 
 ## Decision
 
-Taskport promises **at-least-once or at-most-once, depending on the backend**, and
+Taskferry promises **at-least-once or at-most-once, depending on the backend**, and
 **never exactly-once**. `DeliveryGuarantee` has members `AT_MOST_ONCE` and
 `AT_LEAST_ONCE` and, deliberately, no `EXACTLY_ONCE`. Ordering is described
 separately (`UNORDERED`, `PER_KEY`, `TOTAL`).
 
-What Taskport provides instead of a false guarantee:
+What Taskferry provides instead of a false guarantee:
 
 - **`idempotency_key` on every spec.** A backend advertising `DEDUPLICATION` maps
   it onto its own real mechanism — Procrastinate's `queueing_lock`, a Cloud Tasks
@@ -30,7 +30,7 @@ What Taskport provides instead of a false guarantee:
   backend it is talking to before it relies on anything.
 - **Documentation that says so**, in every README, the module docstrings, and here.
 
-Every deduplication mechanism Taskport can reach is time-bounded and best-effort:
+Every deduplication mechanism Taskferry can reach is time-bounded and best-effort:
 Cloud Tasks' name uniqueness has a retention window; a `queueing_lock` only
 refuses a duplicate while the first job is still pending. These are genuinely
 useful, they are not exactly-once, and the docstrings say which is which.
@@ -56,7 +56,7 @@ case, and users would otherwise reimplement it worse.
 - Handlers must be idempotent. This is stated wherever a handler is written.
 - `idempotency_key` on a backend without `DEDUPLICATION` raises, which surprises
   some users; the alternative is a key that silently does nothing.
-- Taskport can be honestly compared with engines that *do* make the claim, and
+- Taskferry can be honestly compared with engines that *do* make the claim, and
   those claims evaluated on their own terms rather than inherited.
 - Serverless is first-class: no component assumes a permanently-running worker;
   adapters prefer a provider's native push/event mechanism over a polling loop.

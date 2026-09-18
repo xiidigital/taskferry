@@ -1,8 +1,8 @@
 name: Release
 
 # Publishes ONE distribution to PyPI when a per-package tag is pushed, e.g.
-#   taskport-v0.2.0            -> publishes the `taskport` distribution
-#   taskport-celery-v0.1.0     -> publishes `taskport-celery`
+#   taskferry-v0.2.0            -> publishes the `taskferry` distribution
+#   taskferry-celery-v0.1.0     -> publishes `taskferry-celery`
 #
 # Uses PyPI Trusted Publishing (OIDC): no API tokens are stored anywhere. Each
 # PyPI project must have a Trusted Publisher configured for this repo pointing at

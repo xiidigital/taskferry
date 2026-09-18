@@ -1,7 +1,7 @@
-site_name: Taskport
+site_name: Taskferry
 site_description: A portable execution layer for Python — inline, tasks and jobs on the engines you already run.
-site_url: https://taskport.dev
-repo_url: https://github.com/taskport/taskport
+site_url: https://taskferry.dev
+repo_url: https://github.com/taskferry/taskferry
 docs_dir: docs
 
 theme:

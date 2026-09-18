@@ -1,4 +1,4 @@
-# Release template for a standalone Taskport package repo using PyPI Trusted
+# Release template for a standalone Taskferry package repo using PyPI Trusted
 # Publishing (OIDC). NO API TOKENS ARE STORED (section 40). Copy to
 # `.github/workflows/release.yml` after extraction, then configure the project's
 # Trusted Publisher on PyPI (Owner: repo owner, Workflow: release.yml).

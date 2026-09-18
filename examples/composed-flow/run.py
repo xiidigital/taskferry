@@ -3,7 +3,7 @@
     uv run python examples/composed-flow/run.py
 
 Shows the frontier from the design: the application knows *what* the pipeline
-means; Taskport only knows how and where each step executes.
+means; Taskferry only knows how and where each step executes.
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import pipeline
 
-from taskport import Correlation, Taskport, use_correlation
-from taskport.core.correlation import current_correlation
+from taskferry import Correlation, Taskferry, use_correlation
+from taskferry.core.correlation import current_correlation
 
 CONFIG = {
     "backends": {
@@ -32,7 +32,7 @@ CONFIG = {
 
 
 def main() -> None:
-    runtime = Taskport.from_mapping(CONFIG)
+    runtime = Taskferry.from_mapping(CONFIG)
     pipeline.RUNTIME = runtime
 
     # One correlation id ties the whole flow together — the HTTP request that
@@ -49,7 +49,7 @@ def main() -> None:
     print(f"      correlation: {final.correlation.correlation_id if final.correlation else '-'}")
     print(f"\nthe task launched: {pipeline.BUILT}")
 
-    print("\nwhat Taskport did NOT do:")
+    print("\nwhat Taskferry did NOT do:")
     print("  - decide that a COG follows metadata extraction (your domain)")
     print("  - persist a pipeline state machine (your database)")
     print("  - retry the pipeline as a unit (a workflow engine's job)")

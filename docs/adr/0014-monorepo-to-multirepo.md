@@ -17,12 +17,12 @@ extraction stays a mechanical move, not a rewrite:
 1. **Self-contained packages.** Each package has its own `pyproject.toml`,
    `README.md`, `CHANGELOG.md`, `LICENSE`, `src/` and `tests/`.
 2. **No monorepo-relative imports.** Packages import each other only through
-   published distribution names (`taskport-core`), never via relative paths that
+   published distribution names (`taskferry-core`), never via relative paths that
    assume the monorepo layout. In the workspace this is wired with
-   `[tool.uv.sources] taskport-core = { workspace = true }`; outside it, the same
+   `[tool.uv.sources] taskferry-core = { workspace = true }`; outside it, the same
    import resolves from PyPI.
 3. **Independent versioning (SemVer, no lockstep).** Each package versions on its
-   own; inter-package deps use compatible ranges (`taskport-core>=0.1,<0.2`),
+   own; inter-package deps use compatible ranges (`taskferry-core>=0.1,<0.2`),
    not `==` pins.
 4. **Portable CI.** GitHub Actions workflows are per-package and copy cleanly to
    a standalone repo (see `.github/workflows/`).

@@ -5,7 +5,7 @@ uv run python examples/events-inmemory/run.py
 
 from __future__ import annotations
 
-from taskport_events import Event, InMemoryEventBus
+from taskferry_events import Event, InMemoryEventBus
 
 
 def main() -> None:
