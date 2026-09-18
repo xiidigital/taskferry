@@ -305,3 +305,71 @@ class TestConfiguration:
     ) -> None:
         with pytest.raises(ConfigurationError, match=r"project.*location"):
             CloudRunJobBackend(project=project, location=location)
+
+
+# --------------------------------------------------------------------------- #
+# Log streaming
+# --------------------------------------------------------------------------- #
+def log_entry(message: str, insert_id: str) -> SimpleNamespace:
+    return SimpleNamespace(payload=message, insert_id=insert_id, timestamp=datetime.now(UTC))
+
+
+class FakeLoggingClient:
+    def __init__(self, entries: list[Any], *, error: Exception | None = None) -> None:
+        self._entries = entries
+        self.error = error
+        self.calls = 0
+        self.filters: list[str] = []
+
+    def list_entries(
+        self, *, resource_names: list[str], filter_: str, order_by: str, page_size: int
+    ) -> list[Any]:
+        self.calls += 1
+        self.filters.append(filter_)
+        if self.error is not None:
+            raise self.error
+        # Everything on the first page; subsequent polls drain to empty.
+        return self._entries if self.calls == 1 else []
+
+
+def _terminal_executions() -> FakeExecutionsClient:
+    return FakeExecutionsClient(
+        execution_proto(task_count=1, succeeded=1, completion_time=datetime.now(UTC))
+    )
+
+
+class TestCloudRunLogStreaming:
+    """`stream_logs` tails an execution's Cloud Logging entries."""
+
+    def test_streams_entries_until_terminal(self) -> None:
+        logging = FakeLoggingClient(
+            [log_entry("line 0", "a"), log_entry("line 1", "b"), log_entry("line 2", "c")]
+        )
+        backend = make_backend(logging_client=logging, executions_client=_terminal_executions())
+        execution = backend.submit(JobSpec(job="j", image="i"))
+        assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=5)) == [
+            "line 0",
+            "line 1",
+            "line 2",
+        ]
+
+    def test_logs_reads_once_without_following(self) -> None:
+        logging = FakeLoggingClient([log_entry("only line", "a")])
+        backend = make_backend(logging_client=logging)
+        execution = backend.submit(JobSpec(job="j", image="i"))
+        assert backend.logs(execution.id) == "only line"
+
+    def test_duplicate_insert_ids_are_not_yielded_twice(self) -> None:
+        # The same entry echoed on a later poll must not repeat.
+        entry = log_entry("once", "dup")
+        logging = FakeLoggingClient([entry])
+        # Force two polls by keeping the execution non-terminal on the first check.
+        backend = make_backend(logging_client=logging, executions_client=_terminal_executions())
+        execution = backend.submit(JobSpec(job="j", image="i"))
+        assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=5)) == ["once"]
+
+    def test_a_missing_log_source_yields_nothing(self) -> None:
+        logging = FakeLoggingClient([log_entry("never", "a")], error=NotFound())
+        backend = make_backend(logging_client=logging)
+        execution = backend.submit(JobSpec(job="j", image="i"))
+        assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=5)) == []

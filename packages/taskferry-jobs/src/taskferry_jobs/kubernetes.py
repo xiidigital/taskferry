@@ -21,13 +21,17 @@ Authentication follows the cluster's own conventions: in-cluster ServiceAccount
 config when running inside a pod, the local kubeconfig otherwise. The client is
 imported lazily and injectable.
 
-What this deliberately does not do: watch pods, stream logs, manage a controller,
-or garbage-collect finished Jobs. Kubernetes has ``ttlSecondsAfterFinished`` and
-a control plane for exactly that.
+Log streaming reads the Job's pod output through ``CoreV1Api`` — ``logs`` for the
+whole thing once, ``stream_logs`` to follow it live like ``kubectl logs -f``. What
+this still deliberately does not do: manage a controller or garbage-collect
+finished Jobs. Kubernetes has ``ttlSecondsAfterFinished`` and a control plane for
+exactly that.
 """
 
 from __future__ import annotations
 
+import time
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -112,6 +116,8 @@ class KubernetesJobBackend(BaseBackend):
     Args:
         namespace: Namespace the Jobs are created in.
         api: Injected ``kubernetes.client.BatchV1Api`` for testing.
+        core_api: Injected ``kubernetes.client.CoreV1Api`` for testing; used to
+            read and follow pod logs.
         service_account: ServiceAccount name for the pods.
         ttl_seconds_after_finished: Let Kubernetes clean finished Jobs up. Set to
             ``None`` to keep them, and take on the cleanup yourself.
@@ -125,6 +131,7 @@ class KubernetesJobBackend(BaseBackend):
         *,
         namespace: str = "default",
         api: Any = None,
+        core_api: Any = None,
         service_account: str | None = None,
         ttl_seconds_after_finished: int | None = 3600,
         name: str = "kubernetes",
@@ -132,6 +139,7 @@ class KubernetesJobBackend(BaseBackend):
     ) -> None:
         self._namespace = namespace
         self._api = api
+        self._core = core_api
         self._service_account = service_account
         self._ttl = ttl_seconds_after_finished
         self._name = name
@@ -169,6 +177,22 @@ class KubernetesJobBackend(BaseBackend):
                 config.load_kube_config()
             self._api = client.BatchV1Api()
         return self._api
+
+    def _core_api(self) -> Any:
+        if self._core is None:
+            try:
+                from kubernetes import client, config
+            except ImportError as exc:  # pragma: no cover - depends on the environment
+                raise ConfigurationError(
+                    "the Kubernetes backend needs the client: "
+                    "pip install 'taskferry-jobs[kubernetes]'"
+                ) from exc
+            try:
+                config.load_incluster_config()
+            except Exception:
+                config.load_kube_config()
+            self._core = client.CoreV1Api()
+        return self._core
 
     # -- manifest ------------------------------------------------------------------ #
     def build_manifest(self, spec: JobSpec, job_name: str) -> dict[str, Any]:
@@ -346,6 +370,67 @@ class KubernetesJobBackend(BaseBackend):
             )
         return name
 
+    # -- logs --------------------------------------------------------------------------- #
+    def logs(self, execution_id: ExecutionId) -> str:
+        """Read the Job's pod output once. Requires ``Capability.LOGS``."""
+        self.capabilities.require(Capability.LOGS)
+        return "\n".join(self.stream_logs(execution_id, follow=False))
+
+    def stream_logs(
+        self,
+        execution_id: ExecutionId,
+        *,
+        follow: bool = True,
+        poll_interval: float = 1.0,
+        timeout: float | None = None,
+    ) -> Iterator[str]:
+        """Yield the Job's pod output line by line, following it live by default.
+
+        With ``follow=True`` this behaves like ``kubectl logs -f``: it waits for a
+        pod to be scheduled, then streams until the pod terminates. With
+        ``follow=False`` it returns the output currently available and stops.
+
+        Lines are yielded without their trailing newline. ``timeout`` bounds the
+        wait for a pod to appear (and, with ``follow``, the total stream). Requires
+        ``Capability.LOGS``.
+        """
+        self.capabilities.require(Capability.LOGS)
+        job_name = self._job_name(execution_id)
+        deadline = None if timeout is None else time.monotonic() + timeout
+        pod = self._await_pod(job_name, deadline=deadline, poll_interval=poll_interval)
+        if pod is None:
+            return
+        try:
+            response = self._core_api().read_namespaced_pod_log(
+                name=pod,
+                namespace=self._namespace,
+                follow=follow,
+                _preload_content=False,
+            )
+        except Exception as exc:
+            if _is_not_found(exc):
+                return
+            raise BackendError(
+                f"Kubernetes could not read logs for pod {pod!r}: {exc}", backend=self._name
+            ) from exc
+        yield from _iter_lines(response)
+
+    def _await_pod(
+        self, job_name: str, *, deadline: float | None, poll_interval: float
+    ) -> str | None:
+        """Return the name of a pod for the Job, waiting until one is scheduled."""
+        while True:
+            pods = self._core_api().list_namespaced_pod(
+                namespace=self._namespace, label_selector=f"job-name={job_name}"
+            )
+            for pod in getattr(pods, "items", None) or []:
+                pod_name = getattr(getattr(pod, "metadata", None), "name", None)
+                if pod_name:
+                    return str(pod_name)
+            if deadline is not None and time.monotonic() >= deadline:
+                return None
+            time.sleep(poll_interval)
+
 
 def _dns_name(value: str) -> str:
     """Reduce a name to RFC 1123: lowercase alphanumerics and hyphens."""
@@ -356,6 +441,30 @@ def _dns_name(value: str) -> str:
 def _is_not_found(exc: Exception) -> bool:
     """Whether a Kubernetes ``ApiException`` means 404, without importing the client."""
     return getattr(exc, "status", None) == 404
+
+
+def _iter_lines(response: Any) -> Iterator[str]:
+    """Yield UTF-8 log lines (no trailing newline) from a pod-log response.
+
+    Handles both a urllib3 ``HTTPResponse`` (``_preload_content=False`` exposes
+    ``.stream()``) and any plain iterable of ``str``/``bytes`` chunks, so tests can
+    inject a simple fake.
+    """
+    source = response.stream() if hasattr(response, "stream") else response
+    pending = ""
+    try:
+        for chunk in source:
+            text = chunk.decode("utf-8", "replace") if isinstance(chunk, bytes) else str(chunk)
+            pending += text
+            parts = pending.split("\n")
+            pending = parts.pop()
+            yield from parts
+    finally:
+        release = getattr(response, "release_conn", None)
+        if callable(release):  # pragma: no cover - real urllib3 only
+            release()
+    if pending:
+        yield pending
 
 
 def make_backend(**options: Any) -> KubernetesJobBackend:
