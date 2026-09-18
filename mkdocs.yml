@@ -1,6 +1,6 @@
 site_name: Taskferry
 site_description: A portable execution layer for Python — inline, tasks and jobs on the engines you already run.
-site_url: https://taskferry.dev
+site_url: https://xiidigital.github.io/taskferry/
 repo_url: https://github.com/xiidigital/taskferry
 docs_dir: docs
 
