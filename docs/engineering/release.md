@@ -36,15 +36,26 @@ git tag taskferry-celery-v0.1.0 && git push origin taskferry-celery-v0.1.0 # pub
 ```
 
 The workflow derives the package from the tag, runs `uv build --package <dist>`,
-and uploads it with `pypa/gh-action-pypi-publish` over OIDC.
+and publishes under a **GitHub Environment named after the distribution** (e.g.
+`taskferry-celery`), then uploads with `pypa/gh-action-pypi-publish` over OIDC.
+
+The per-distribution environment is what makes a monorepo work with Trusted
+Publishing: PyPI refuses two *pending* publishers that share an identical
+configuration (owner + repository + workflow + environment). Giving each
+distribution its own environment keeps every publisher's claim set unique.
 
 First release of each package (one-time, per distribution):
 
 1. Create a **Trusted Publisher** on PyPI for the project (a *pending publisher*
    works before the project exists): <https://pypi.org/manage/account/publishing/>
    with — Owner `xiidigital`, Repository `taskferry`, Workflow `release.yml`,
-   Environment *(leave blank)*.
+   Environment `<distribution>` (the same name as the PyPI project, e.g.
+   `taskferry-celery`).
 2. Push the package's tag (above). Nothing publishes without that tag.
+
+> The `taskferry` core was first published with a *blank* environment. Before its
+> next release, add a second Trusted Publisher to the existing project with
+> Environment `taskferry` so it matches this workflow.
 
 ### After extraction
 
