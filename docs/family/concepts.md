@@ -1,20 +1,20 @@
 # Task vs Job vs Event vs Schedule
 
-Taskport keeps four concepts distinct on purpose (ADR-0003). Choosing the right
+Taskferry keeps four concepts distinct on purpose (ADR-0003). Choosing the right
 one is the most important design decision when using the family.
 
 | Concept    | Meaning                | Consumers     | Execution                     | Package               |
 | ---------- | ---------------------- | ------------- | ----------------------------- | --------------------- |
-| **Task**   | "do this operation"    | usually 1     | async work                    | `taskport-django`     |
-| **Job**    | "run this workload"    | 1             | process / container           | `taskport-jobs`       |
-| **Event**  | "this happened"        | 0..N          | fan-out                       | `taskport-events`     |
-| **Schedule** | "fire something when" | N/A          | triggers another capability   | `taskport-scheduler`  |
+| **Task**   | "do this operation"    | usually 1     | async work                    | `taskferry-django`     |
+| **Job**    | "run this workload"    | 1             | process / container           | `taskferry-jobs`       |
+| **Event**  | "this happened"        | 0..N          | fan-out                       | `taskferry-events`     |
+| **Schedule** | "fire something when" | N/A          | triggers another capability   | `taskferry-scheduler`  |
 
 ## How to choose
 
 - **Task** — a short-to-medium unit of application work you want off the
   request path: send an email, resize an image, recompute a cache. Usually one
-  consumer runs it. In Taskport this *is* the official Django 6 Tasks API.
+  consumer runs it. In Taskferry this *is* the official Django 6 Tasks API.
 - **Job** — a finite, often heavy workload that belongs in its own process or
   container: ETL, GIS raster processing, tile generation, ML training, large
   imports, CPU/RAM-intensive batch. Exactly one execution per submission; you
@@ -41,5 +41,5 @@ as an Event.
 
 The concepts compose (`Task → Job`, `Event → Task`, `Schedule → Job`, ...) but
 they are never merged into one abstraction. See
-[composition.md](composition.md). Taskport deliberately does **not** provide DAG
+[composition.md](composition.md). Taskferry deliberately does **not** provide DAG
 workflows or a state machine — that is out of scope (section 46).

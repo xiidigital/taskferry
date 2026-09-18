@@ -36,17 +36,17 @@ jobs:
       - name: Mypy (strict, every shipped package)
         run: >
           uv run mypy
-          packages/taskport/src
-          packages/taskport-procrastinate/src
-          packages/taskport-cloudtasks/src
-          packages/taskport-cloudrun/src
-          packages/taskport-sqs/src
-          packages/taskport-servicebus/src
-          packages/taskport-dramatiq/src
-          packages/taskport-jobs/src
-          packages/taskport-events/src
-          packages/taskport-scheduler/src
-          packages/taskport-django/src
+          packages/taskferry/src
+          packages/taskferry-procrastinate/src
+          packages/taskferry-cloudtasks/src
+          packages/taskferry-cloudrun/src
+          packages/taskferry-sqs/src
+          packages/taskferry-servicebus/src
+          packages/taskferry-dramatiq/src
+          packages/taskferry-jobs/src
+          packages/taskferry-events/src
+          packages/taskferry-scheduler/src
+          packages/taskferry-django/src
 
       - name: Pytest (+ coverage)
         run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
@@ -57,13 +57,13 @@ jobs:
           name: coverage
           path: coverage.xml
 
-  # The job that keeps the central promise honest. `pip install taskport` must
+  # The job that keeps the central promise honest. `pip install taskferry` must
   # install nothing else, and the core must be usable and testable in a process
   # that has never seen Django, Procrastinate or a cloud SDK. Running this in a
   # genuinely bare environment is the only way to know — the workspace venv has
   # every adapter installed, so it could never catch a leak.
   isolation:
-    name: taskport alone (no Django, no adapters)
+    name: taskferry alone (no Django, no adapters)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,10 +71,10 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install ONLY taskport and pytest
+      - name: Install ONLY taskferry and pytest
         run: |
           uv venv .venv-isolated
-          VIRTUAL_ENV=.venv-isolated uv pip install ./packages/taskport pytest pytest-asyncio
+          VIRTUAL_ENV=.venv-isolated uv pip install ./packages/taskferry pytest pytest-asyncio
 
       - name: Nothing else came along for the ride
         run: |
@@ -87,9 +87,9 @@ jobs:
           .venv-isolated/bin/python - <<'PY'
           import asyncio
           import sys
-          import taskport
+          import taskferry
 
-          runtime = taskport.Taskport.local()
+          runtime = taskferry.Taskferry.local()
 
           def add(a: int, b: int) -> int:
               return a + b
@@ -99,10 +99,10 @@ jobs:
 
           # The async surface must work alone too — it is part of the core.
           # Inline, not tasks: `add` is defined in __main__, and a task must be
-          # importable by name. Taskport rejects that at submit time, which is
+          # importable by name. Taskferry rejects that at submit time, which is
           # the behaviour we want and not what this probe is checking.
           async def check_async() -> int:
-              aio = taskport.AsyncTaskport.local()
+              aio = taskferry.AsyncTaskferry.local()
               handle = await aio.inline.submit(add, 20, 22)
               value = await handle.value()
               await aio.close()
@@ -112,16 +112,16 @@ jobs:
 
           for forbidden in ("django", "procrastinate", "celery", "redis", "psycopg",
                             "sqlalchemy", "boto3", "google", "azure", "kubernetes"):
-              assert forbidden not in sys.modules, f"taskport imported {forbidden}"
+              assert forbidden not in sys.modules, f"taskferry imported {forbidden}"
 
-          print("taskport works alone:", taskport.__version__)
+          print("taskferry works alone:", taskferry.__version__)
           PY
 
       - name: The CLI works with nothing configured
-        run: .venv-isolated/bin/taskport doctor
+        run: .venv-isolated/bin/taskferry doctor
 
       - name: The core test suite passes with no adapters installed
-        run: .venv-isolated/bin/python -m pytest packages/taskport -q -p no:cacheprovider
+        run: .venv-isolated/bin/python -m pytest packages/taskferry -q -p no:cacheprovider
 
   django-matrix:
     name: Django ${{ matrix.django-version }}
@@ -140,7 +140,7 @@ jobs:
       - name: Pin Django ${{ matrix.django-version }}
         run: uv pip install "django~=${{ matrix.django-version }}.0"
       - name: Test the Django adapter
-        run: uv run pytest packages/taskport-django -q
+        run: uv run pytest packages/taskferry-django -q
 
   build:
     name: build distributions

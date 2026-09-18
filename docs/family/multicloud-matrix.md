@@ -1,6 +1,6 @@
 # Multicloud equivalence matrix
 
-These services are **conceptually equivalent**, not identical. Taskport's
+These services are **conceptually equivalent**, not identical. Taskferry's
 capability model (ADR-0005) exists precisely because their feature sets differ.
 Always check `provider.capabilities` rather than assuming parity.
 
@@ -13,7 +13,7 @@ Always check `provider.capabilities` rather than assuming parity.
 
 \* Azure has no single "Cloud Scheduler"-shaped product. Recurring triggering is
 assembled from Logic Apps recurrence, Azure Functions timer triggers, or a
-Container Apps Job with a cron trigger. Taskport's Azure scheduler adapter is on
+Container Apps Job with a cron trigger. Taskferry's Azure scheduler adapter is on
 the roadmap for this reason (see [roadmap.md](roadmap.md)).
 
 ## Important non-equivalences
@@ -21,7 +21,7 @@ the roadmap for this reason (see [roadmap.md](roadmap.md)).
 - **Cloud Tasks vs SQS.** Cloud Tasks is a *push* system (it calls your HTTP
   endpoint) with native per-task scheduled delivery and rate control. SQS is a
   *pull* queue; scheduled delivery is limited (max 15-minute delay) and a
-  consumer (Lambda/ECS) must read it. They are not interchangeable — Taskport
+  consumer (Lambda/ECS) must read it. They are not interchangeable — Taskferry
   exposes the difference through `TaskCapability.SCHEDULED_EXECUTION` and the
   serverless-vs-worker deployment profiles.
 - **Cloud Run Jobs vs AWS Batch vs Container Apps Jobs.** All run a container to

@@ -1,4 +1,4 @@
-# Taskport — delivery handoff
+# Taskferry — delivery handoff
 
 A portable execution layer for Python: model a unit of work once, route it to an
 engine that already exists (Procrastinate, Celery, Cloud Tasks, SQS, Service Bus,
@@ -14,20 +14,20 @@ Cloud Run Jobs, Kubernetes, …) by configuration rather than code change.
 
 | Distribution | Version | Import | Role |
 | --- | --- | --- | --- |
-| `taskport` | 0.2.0 | `taskport` | the execution layer — **zero dependencies** |
-| `taskport-procrastinate` | 0.2.0 | `taskport_procrastinate` | task backend (PostgreSQL) |
-| `taskport-celery` | 0.1.0 | `taskport_celery` | task backend (Celery) |
-| `taskport-cloudtasks` | 0.2.0 | `taskport_cloudtasks` | task backend (GCP Cloud Tasks, push) |
-| `taskport-sqs` | 0.2.0 | `taskport_sqs` | task backend (AWS SQS) |
-| `taskport-servicebus` | 0.2.0 | `taskport_servicebus` | task backend (Azure Service Bus) |
-| `taskport-dramatiq` | 0.2.0 | `taskport_dramatiq` | task backend (Dramatiq) |
-| `taskport-cloudrun` | 0.2.0 | `taskport_cloudrun` | job backend (Cloud Run Jobs) |
-| `taskport-jobs` | 0.2.0 | `taskport_jobs` | job backends (AWS Batch, Kubernetes, Azure Container Apps) |
-| `taskport-events` | 0.2.0 | `taskport_events` | pub/sub events (in-memory, Pub/Sub, SNS/EventBridge, Event Grid, Kafka) |
-| `taskport-scheduler` | 0.2.0 | `taskport_scheduler` | schedules (local, Cloud Scheduler, EventBridge, CronJob) |
-| `taskport-otel` | 0.1.0 | `taskport_otel` | OpenTelemetry bridge |
+| `taskferry` | 0.2.0 | `taskferry` | the execution layer — **zero dependencies** |
+| `taskferry-procrastinate` | 0.2.0 | `taskferry_procrastinate` | task backend (PostgreSQL) |
+| `taskferry-celery` | 0.1.0 | `taskferry_celery` | task backend (Celery) |
+| `taskferry-cloudtasks` | 0.2.0 | `taskferry_cloudtasks` | task backend (GCP Cloud Tasks, push) |
+| `taskferry-sqs` | 0.2.0 | `taskferry_sqs` | task backend (AWS SQS) |
+| `taskferry-servicebus` | 0.2.0 | `taskferry_servicebus` | task backend (Azure Service Bus) |
+| `taskferry-dramatiq` | 0.2.0 | `taskferry_dramatiq` | task backend (Dramatiq) |
+| `taskferry-cloudrun` | 0.2.0 | `taskferry_cloudrun` | job backend (Cloud Run Jobs) |
+| `taskferry-jobs` | 0.2.0 | `taskferry_jobs` | job backends (AWS Batch, Kubernetes, Azure Container Apps) |
+| `taskferry-events` | 0.2.0 | `taskferry_events` | pub/sub events (in-memory, Pub/Sub, SNS/EventBridge, Event Grid, Kafka) |
+| `taskferry-scheduler` | 0.2.0 | `taskferry_scheduler` | schedules (local, Cloud Scheduler, EventBridge, CronJob) |
+| `taskferry-otel` | 0.1.0 | `taskferry_otel` | OpenTelemetry bridge |
 
-Every adapter depends only on `taskport` and puts its provider SDK behind an
+Every adapter depends only on `taskferry` and puts its provider SDK behind an
 extra; an architectural test enforces that importing an adapter pulls in no SDK.
 
 ## Run it yourself

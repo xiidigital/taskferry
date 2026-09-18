@@ -1,4 +1,4 @@
-# ADR-0004: `taskport-core` stays intentionally tiny
+# ADR-0004: `taskferry-core` stays intentionally tiny
 
 - Status: Accepted
 - Date: 2026-07-24
@@ -10,13 +10,13 @@ god-dependency that every other package (and their transitive users) must carry.
 
 ## Decision
 
-`taskport-core` contains **only genuinely transversal** concerns and has **zero
+`taskferry-core` contains **only genuinely transversal** concerns and has **zero
 runtime dependencies**. It never imports Django, a cloud SDK, Redis, a broker, or
 Kubernetes.
 
 In scope:
 
-- Identifiers (`TaskportId`, `new_id`)
+- Identifiers (`TaskferryId`, `new_id`)
 - Correlation metadata + trace-context propagation
 - Provider metadata (the provider-specific escape hatch)
 - Capability model (`Capability`, `CapabilitySet`)

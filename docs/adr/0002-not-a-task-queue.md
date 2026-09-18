@@ -1,4 +1,4 @@
-# ADR-0002: Taskport does not implement a task queue
+# ADR-0002: Taskferry does not implement a task queue
 
 - Status: Accepted
 - Date: 2026-07-26
@@ -16,7 +16,7 @@ The 0.1 roadmap already contained several of these steps.
 
 ## Decision
 
-Taskport will **never** implement, inside any of its distributions:
+Taskferry will **never** implement, inside any of its distributions:
 
 - a PostgreSQL or Redis queue
 - a worker daemon or worker pool manager
@@ -28,33 +28,33 @@ Taskport will **never** implement, inside any of its distributions:
 - a scheduler daemon
 - a DAG engine, sagas, durable workflows, or human approvals
 
-Every one of these belongs to an execution engine. Taskport delegates.
+Every one of these belongs to an execution engine. Taskferry delegates.
 
 ```mermaid
 flowchart LR
-    TP["Taskport"]
-    ADAPTER["taskport-procrastinate"]
+    TP["Taskferry"]
+    ADAPTER["taskferry-procrastinate"]
     PRO["Procrastinate"]
     PG["PostgreSQL"]
 
     TP --> ADAPTER --> PRO --> PG
 ```
 
-Taskport does not know how Procrastinate uses PostgreSQL, and must not learn.
+Taskferry does not know how Procrastinate uses PostgreSQL, and must not learn.
 
 The rule applied to every proposal: *does this belong to an execution portability
 layer, or am I rebuilding something the engine already does?*
 
 ### The one deliberate exception, and its limits
 
-`taskport` ships in-process backends: inline, a thread pool, a process pool and a
+`taskferry` ships in-process backends: inline, a thread pool, a process pool and a
 subprocess runner. They exist so the library is usable with zero infrastructure —
 in a test, a notebook, a CLI — and so every port has a reference implementation to
 test adapters against.
 
 They are **not** queues, and their docstrings, their capability sets and this ADR
 all say so. They are not durable, not visible across processes, and they lose
-pending work on restart. `taskport-django`'s system checks warn when one is routed
+pending work on restart. `taskferry-django`'s system checks warn when one is routed
 to in a `DEBUG = False` deployment.
 
 ## Alternatives considered
@@ -66,14 +66,14 @@ reservation, and the slope from there is short and well-documented in the histor
 of other projects.
 
 **Ship nothing local at all; require an adapter always.** Rejected because it
-would make Taskport unusable in a test suite, a notebook or a CLI without standing
+would make Taskferry unusable in a test suite, a notebook or a CLI without standing
 up PostgreSQL, and would remove the reference implementations the contract suites
 are validated against.
 
 ## Consequences
 
-- Taskport stays small, which is the only way it stays honest.
-- Users must choose an engine for production. Taskport makes that choice cheap and
+- Taskferry stays small, which is the only way it stays honest.
+- Users must choose an engine for production. Taskferry makes that choice cheap and
   reversible; it does not make it for them.
 - An architectural test greps the core for the vocabulary of engine features
   (`worker_heartbeat`, `advisory_lock`, `queue_poll`, `reserve_job`, ...) and

@@ -39,7 +39,7 @@ field to keep consistent. Type checkers could not narrow the valid fields, so th
 IDE would offer `image` on a Procrastinate task forever.
 
 **Model Jobs as Tasks whose function launches a container.** This is what
-applications do today without Taskport, and it is precisely the coupling being
+applications do today without Taskferry, and it is precisely the coupling being
 removed: the application ends up holding a Kubernetes client.
 
 ## Consequences

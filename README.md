@@ -1,6 +1,6 @@
-# Taskport
+# Taskferry
 
-**Taskport is a portable execution layer for Python applications.**
+**Taskferry is a portable execution layer for Python applications.**
 
 It models units of work, chooses the right *kind* of execution, and routes them to
 engines that already exist. It is not a task queue, not a worker system, not a
@@ -10,7 +10,7 @@ never has to name one.
 ```mermaid
 flowchart LR
     APP["Application / library"]
-    TP["Taskport"]
+    TP["Taskferry"]
     ENGINE["Execution engine"]
     INFRA["Infrastructure"]
 
@@ -22,13 +22,13 @@ flowchart LR
 ## Sixty seconds in
 
 ```bash
-pip install taskport
+pip install taskferry
 ```
 
 ```python
-from taskport import Taskport
+from taskferry import Taskferry
 
-runtime = Taskport.local()
+runtime = Taskferry.local()
 
 
 def add(a: int, b: int) -> int:
@@ -40,16 +40,16 @@ assert execution.result().value == 42
 ```
 
 No Django. No PostgreSQL. No Redis. No Procrastinate. No cloud account. No worker
-process. `pip install taskport` installs **nothing but Taskport** — the
+process. `pip install taskferry` installs **nothing but Taskferry** — the
 distribution declares zero dependencies, and [an architectural
-test](packages/taskport/tests/test_architecture.py) fails the build if that ever
+test](packages/taskferry/tests/test_architecture.py) fails the build if that ever
 stops being true.
 
-## What Taskport is
+## What Taskferry is
 
 A thin, honest layer between "what should run" and "where it runs":
 
-| Taskport does | Taskport delegates |
+| Taskferry does | Taskferry delegates |
 | --- | --- |
 | model work as Inline, Task or Job | running workers |
 | route work to a backend by queue/profile | queue storage and locking |
@@ -57,13 +57,13 @@ A thin, honest layer between "what should run" and "where it runs":
 | translate portable retry/timeout intent | scheduling and cron |
 | give executions a portable identity and state machine | container orchestration |
 
-## What Taskport is not
+## What Taskferry is not
 
 Explicitly, and permanently, out of scope: a task queue, a worker daemon, a
 broker protocol, queue polling, distributed locks, a worker registry, a scheduler
 daemon, a DAG engine, sagas, durable workflows, or human approvals. Procrastinate,
 Celery, Cloud Tasks, Cloud Run, Kubernetes and Temporal already do those things
-well. Taskport makes them interchangeable.
+well. Taskferry makes them interchangeable.
 
 Every feature proposal gets asked one question: *does this belong to an execution
 portability layer, or am I rebuilding something the engine already does?* If it is
@@ -71,11 +71,11 @@ the second, it gets delegated. See [ADR-0002](docs/adr/0002-not-a-task-queue.md)
 
 ## Three primitives
 
-They are genuinely different, and Taskport refuses to collapse them.
+They are genuinely different, and Taskferry refuses to collapse them.
 
 ```mermaid
 flowchart TD
-    TP["Taskport"]
+    TP["Taskferry"]
 
     TP --> INLINE["Inline<br/>run it here, now"]
     TP --> TASK["Task<br/>a named function, on an engine"]
@@ -145,7 +145,7 @@ back to "whatever is around".
 
 Backends genuinely differ. Procrastinate can cancel a queued job; Cloud Tasks
 cannot even report one's state. Cloud Run cannot allocate a GPU per execution;
-AWS Batch can. Taskport refuses to paper over this.
+AWS Batch can. Taskferry refuses to paper over this.
 
 ```python
 if Capability.CANCEL in handle.capabilities:
@@ -172,7 +172,7 @@ runtime.jobs.submit("train", resources=Resources(gpu=1), profile="cloudrun")
 | `GPU` | – | – | – | – | – | **no** | yes | yes |
 
 The blanks are the point, and they are
-[asserted in tests](packages/taskport-jobs/tests/test_jobs.py), not just written
+[asserted in tests](packages/taskferry-jobs/tests/test_jobs.py), not just written
 down. See [ADR-0005](docs/adr/0005-capability-model.md).
 
 ## Executions
@@ -202,7 +202,7 @@ what the provider actually says; they never invent a transition it cannot observ
 ```python
 handle = runtime.tasks.submit("myapp.tasks:reindex", 42)
 
-handle.id  # taskport's id, stable and short
+handle.id  # taskferry's id, stable and short
 handle.external_id  # the engine's id, for the provider's console
 handle.status()  # re-read from the backend
 handle.wait(30)  # block until terminal
@@ -215,20 +215,20 @@ handle.cancel()  # or raise UnsupportedCapability
 Same vocabulary, one `await` apart:
 
 ```python
-from taskport import AsyncTaskport
+from taskferry import AsyncTaskferry
 
-runtime = AsyncTaskport.local()
+runtime = AsyncTaskferry.local()
 
 handle = await runtime.tasks.submit("myapp.tasks:send_email", 42)
 execution = await handle.wait(30)
 value = await handle.value()
 ```
 
-`AsyncTaskport` wraps a sync runtime, so a process with async views and sync
+`AsyncTaskferry` wraps a sync runtime, so a process with async views and sync
 management commands shares one set of backends and one connection pool:
 
 ```python
-aio = AsyncTaskport(get_runtime())  # the project's existing runtime
+aio = AsyncTaskferry(get_runtime())  # the project's existing runtime
 ```
 
 The async path is real, not an `async def` painted over a blocking call — two
@@ -239,7 +239,7 @@ requiring four 0.2s jobs to finish in ~0.2s. See
 
 ## Guarantees, stated plainly
 
-Taskport promises **at-least-once or at-most-once, depending on the backend**. It
+Taskferry promises **at-least-once or at-most-once, depending on the backend**. It
 never promises exactly-once, because no distributed system can honestly offer it.
 `idempotency_key` is a tool for building idempotency where the backend supports
 real deduplication — not a guarantee. See
@@ -252,42 +252,42 @@ become several hundred:
 RetryPolicy(max_attempts=5, backoff=Backoff.EXPONENTIAL, owner=RetryOwner.BACKEND)
 ```
 
-**Taskport itself never retries.** It translates the intent into the engine's own
+**Taskferry itself never retries.** It translates the intent into the engine's own
 retry configuration and gets out of the way. See
 [ADR-0011](docs/adr/0011-retry-ownership.md).
 
 ## The distributions
 
-`pip install taskport` gives you the layer and the built-in local backends. Each
+`pip install taskferry` gives you the layer and the built-in local backends. Each
 engine is a separate, optional distribution.
 
 | Install | Provides | Needs |
 | --- | --- | --- |
-| `taskport` | runtime, router, sync + async API, local backends, CLI | nothing |
-| `taskport-procrastinate` | Procrastinate task backend + worker dispatcher | PostgreSQL |
-| `taskport-cloudtasks` | Cloud Tasks task backend + receiver | GCP |
-| `taskport-sqs` | SQS task backend + Lambda/ECS consumers | AWS |
-| `taskport-servicebus` | Azure Service Bus task backend + consumers | Azure |
-| `taskport-dramatiq` | Dramatiq task backend + worker actor | Redis or RabbitMQ |
-| `taskport-cloudrun` | Cloud Run Jobs backend | GCP |
-| `taskport-jobs` | AWS Batch, Kubernetes, Azure Container Apps job backends | the matching SDK |
-| `taskport-django` | `django.tasks` backend, settings, checks, `manage.py taskport` | Django |
-| `taskport-events` | portable pub/sub fan-out | the matching SDK |
-| `taskport-scheduler` | portable "when to fire" triggering | the matching SDK |
+| `taskferry` | runtime, router, sync + async API, local backends, CLI | nothing |
+| `taskferry-procrastinate` | Procrastinate task backend + worker dispatcher | PostgreSQL |
+| `taskferry-cloudtasks` | Cloud Tasks task backend + receiver | GCP |
+| `taskferry-sqs` | SQS task backend + Lambda/ECS consumers | AWS |
+| `taskferry-servicebus` | Azure Service Bus task backend + consumers | Azure |
+| `taskferry-dramatiq` | Dramatiq task backend + worker actor | Redis or RabbitMQ |
+| `taskferry-cloudrun` | Cloud Run Jobs backend | GCP |
+| `taskferry-jobs` | AWS Batch, Kubernetes, Azure Container Apps job backends | the matching SDK |
+| `taskferry-django` | `django.tasks` backend, settings, checks, `manage.py taskferry` | Django |
+| `taskferry-events` | portable pub/sub fan-out | the matching SDK |
+| `taskferry-scheduler` | portable "when to fire" triggering | the matching SDK |
 
 ```mermaid
 flowchart BT
-    TPD["taskport-django"]
-    TPP["taskport-procrastinate"]
-    TPC["taskport-cloudtasks"]
-    TPQ["taskport-sqs"]
-    TPB["taskport-servicebus"]
-    TPM["taskport-dramatiq"]
-    TPR["taskport-cloudrun"]
-    TPJ["taskport-jobs"]
-    TPE["taskport-events"]
-    TPS["taskport-scheduler"]
-    TP["taskport<br/>(no dependencies)"]
+    TPD["taskferry-django"]
+    TPP["taskferry-procrastinate"]
+    TPC["taskferry-cloudtasks"]
+    TPQ["taskferry-sqs"]
+    TPB["taskferry-servicebus"]
+    TPM["taskferry-dramatiq"]
+    TPR["taskferry-cloudrun"]
+    TPJ["taskferry-jobs"]
+    TPE["taskferry-events"]
+    TPS["taskferry-scheduler"]
+    TP["taskferry<br/>(no dependencies)"]
 
     TPD --> TP
     TPP --> TP
@@ -301,8 +301,8 @@ flowchart BT
     TPS --> TP
 ```
 
-Adapters register themselves through the `taskport.backends` entry-point group, so
-naming one in configuration is all it takes — Taskport never imports an adapter it
+Adapters register themselves through the `taskferry.backends` entry-point group, so
+naming one in configuration is all it takes — Taskferry never imports an adapter it
 was not asked for. See [ADR-0013](docs/adr/0013-packaging-strategy.md).
 
 ## Django
@@ -321,44 +321,44 @@ def resize_image(image_id: int) -> None: ...
 
 ```python
 # settings.py — the only thing that changes engines
-TASKS = {"default": {"BACKEND": "taskport_django.TaskportBackend"}}
+TASKS = {"default": {"BACKEND": "taskferry_django.TaskferryBackend"}}
 
-TASKPORT = {
+TASKFERRY = {
     "backends": {"pg": {"factory": "procrastinate", "app": "myapp.tasks:app"}},
     "defaults": {"task": "pg"},
 }
 ```
 
-`taskport-django` also gives you `submit_on_commit()` (so a worker never reaches a
+`taskferry-django` also gives you `submit_on_commit()` (so a worker never reaches a
 row before it is committed), system checks that build every configured backend at
-`manage.py check` time, and `manage.py taskport doctor`.
+`manage.py check` time, and `manage.py taskferry doctor`.
 
-**`taskport` never imports Django.** The same configuration works in a FastAPI
+**`taskferry` never imports Django.** The same configuration works in a FastAPI
 service, a CLI, a notebook, or a library — none of which have to agree on a web
 framework to agree on a queue.
 
 ## CLI
 
 ```bash
-taskport backends            # what is configured, and where each route goes
-taskport capabilities pg     # what one backend can actually do
-taskport route --kind job --profile gpu
-taskport submit-job build-cog --image gdal:latest -- python build.py
-taskport status EXECUTION_ID --backend pg
-taskport doctor              # is this deployment actually wired up?
+taskferry backends            # what is configured, and where each route goes
+taskferry capabilities pg     # what one backend can actually do
+taskferry route --kind job --profile gpu
+taskferry submit-job build-cog --image gdal:latest -- python build.py
+taskferry status EXECUTION_ID --backend pg
+taskferry doctor              # is this deployment actually wired up?
 ```
 
 `doctor` builds every configured backend, because "the adapter is installed" and
 "the adapter works with these options" are different questions, and only the
 second one matters at 3am.
 
-## Extending Taskport
+## Extending Taskferry
 
 An adapter implements two methods, declares its capabilities, and passes the
 contract suite the port ships:
 
 ```python
-from taskport.contract import TaskBackendContract
+from taskferry.contract import TaskBackendContract
 
 
 class TestMyBackend(TaskBackendContract):
@@ -386,21 +386,21 @@ asserted to *reject* cancellation, not skipped.
 uv sync --all-packages
 uv run pytest
 uv run ruff check .
-uv run mypy packages/taskport/src packages/taskport-django/src
+uv run mypy packages/taskferry/src packages/taskferry-django/src
 uv run python tooling/build_all.py
 ```
 
 The core is testable with nothing installed:
 
 ```bash
-uv run pytest packages/taskport     # no Django, no Procrastinate, no cloud SDK
+uv run pytest packages/taskferry     # no Django, no Procrastinate, no cloud SDK
 ```
 
 ## Status
 
 Early but coherent. The vertical slice the design targets — inline, Procrastinate
 tasks and Cloud Run jobs, all behind one API — is implemented and tested. The
-public API listed in `taskport.__all__` is the surface intended to be stable from
+public API listed in `taskferry.__all__` is the surface intended to be stable from
 here. See [the roadmap](docs/family/roadmap.md).
 
 ## License

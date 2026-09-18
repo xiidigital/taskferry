@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import sys
 
-from taskport import Capability, ExecutionState, Resources, Taskport
-from taskport.errors import UnsupportedCapability
+from taskferry import Capability, ExecutionState, Resources, Taskferry
+from taskferry.errors import UnsupportedCapability
 
 
 def main() -> None:
-    runtime = Taskport.local()
+    runtime = Taskferry.local()
     backend = runtime.backend("subprocess")
 
     print("what the local job backend can do:")

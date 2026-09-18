@@ -4,7 +4,7 @@
 > the migration was carried out — is in
 > [the 2026 refactor document](refactor-2026.md). This page is the summary.
 
-Taskport is a portable execution layer. Applications depend on small, stable
+Taskferry is a portable execution layer. Applications depend on small, stable
 contracts; adapters implement those contracts on real engines. Dependencies always
 point **inward**.
 
@@ -13,7 +13,7 @@ flowchart BT
     PROVIDERS["Provider adapters<br/>procrastinate · cloudtasks · cloudrun · jobs"]
     FRAMEWORKS["Framework adapters<br/>django"]
     PORTS["Ports<br/>TaskBackend · JobBackend · InlineBackend"]
-    CORE["taskport<br/>specs · execution · router · runtime"]
+    CORE["taskferry<br/>specs · execution · router · runtime"]
 
     PROVIDERS --> PORTS
     FRAMEWORKS --> PORTS
@@ -24,7 +24,7 @@ Never the reverse:
 
 ```mermaid
 flowchart TD
-    CORE["taskport"]
+    CORE["taskferry"]
     CORE -.->|"forbidden"| DJANGO["Django"]
     CORE -.->|"forbidden"| CLOUDRUN["Cloud Run"]
     CORE -.->|"forbidden"| PROCRASTINATE["Procrastinate"]
@@ -41,7 +41,7 @@ flowchart TB
         FA["FastAPI"]
     end
 
-    subgraph Taskport
+    subgraph Taskferry
         RUNTIME["Runtime"]
         ROUTER["Router"]
         INLINE["Inline Port"]
@@ -86,15 +86,15 @@ flowchart TB
 
 | Guarantee | Enforced by |
 | --- | --- |
-| `taskport` imports no framework or provider SDK | AST scan of every source file |
+| `taskferry` imports no framework or provider SDK | AST scan of every source file |
 | nothing heavy lands in `sys.modules` | subprocess import probe |
-| `pip install taskport` installs nothing else | metadata check + a CI job in a bare venv |
+| `pip install taskferry` installs nothing else | metadata check + a CI job in a bare venv |
 | adapters do not depend on each other | AST scan across distributions |
-| no adapter contributes to the `taskport` package | layout check |
+| no adapter contributes to the `taskferry` package | layout check |
 | the core does not grow engine features | vocabulary scan |
 
 All six live in
-[`packages/taskport/tests/test_architecture.py`](https://github.com/taskport/taskport/blob/main/packages/taskport/tests/test_architecture.py)
+[`packages/taskferry/tests/test_architecture.py`](https://github.com/taskferry/taskferry/blob/main/packages/taskferry/tests/test_architecture.py)
 and run on every commit.
 
 ## Import weight
@@ -102,4 +102,4 @@ and run on every commit.
 Provider SDKs are imported **lazily**, inside the method that needs a client, and
 adapters are discovered through entry points rather than imported eagerly. A web
 process that only enqueues tasks never imports the Google SDK, even with
-`taskport-cloudrun` installed.
+`taskferry-cloudrun` installed.

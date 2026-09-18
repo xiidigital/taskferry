@@ -2,7 +2,7 @@
 
 ```bash
 uv run pytest                                   # everything
-uv run pytest packages/taskport/tests           # one distribution
+uv run pytest packages/taskferry/tests           # one distribution
 uv run pytest --cov --cov-report=term-missing   # with coverage
 ```
 
@@ -13,7 +13,7 @@ pytest runs in `importlib` import mode so identically-named test files
 
 - **Unit tests** for the pure pieces: specs, capabilities, the router, retry
   policy, serialization, correlation.
-- **Contract suites** — the load-bearing idea. `taskport.contract` ships reusable,
+- **Contract suites** — the load-bearing idea. `taskferry.contract` ships reusable,
   capability-driven test bases (`TaskBackendContract`, `JobBackendContract`,
   `InlineContract`). A backend proves itself by subclassing one and pointing it at
   an instance; the suite asserts the behaviour the ports promise. Crucially it is
@@ -21,7 +21,7 @@ pytest runs in `importlib` import mode so identically-named test files
   *reject* cancellation, not skipped. This is how one test body keeps every adapter
   honest.
 - **Architecture tests** (`test_architecture.py`, `test_capability_coherence.py`)
-  encode the invariants the tooling can't: `taskport` has zero dependencies, the
+  encode the invariants the tooling can't: `taskferry` has zero dependencies, the
   core never imports `django.conf.settings`, importing an adapter pulls in no SDK,
   capability sets are coherent across kinds.
 

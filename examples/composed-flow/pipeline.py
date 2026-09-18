@@ -1,7 +1,7 @@
 """A task that launches a job — and why that boundary is where it is.
 
-The task decides *what should happen next*. Taskport decides *how and where* it
-runs. That split is the whole reason Taskport is not a workflow engine: the
+The task decides *what should happen next*. Taskferry decides *how and where* it
+runs. That split is the whole reason Taskferry is not a workflow engine: the
 business meaning of "after metadata extraction, build a COG" belongs to your
 application, not to the execution layer.
 """
@@ -11,12 +11,12 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from taskport import Taskport
+from taskferry import Taskferry
 
 # Set by run.py so the task can reach the runtime. In a real deployment this
 # would be your application's own runtime accessor — Django's get_runtime(), a
 # FastAPI dependency, a module-level singleton you built at startup.
-RUNTIME: Taskport | None = None
+RUNTIME: Taskferry | None = None
 
 BUILT: list[str] = []
 

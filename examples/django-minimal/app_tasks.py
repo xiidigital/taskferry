@@ -1,4 +1,4 @@
-"""Ordinary Django tasks. Nothing here mentions Taskport."""
+"""Ordinary Django tasks. Nothing here mentions Taskferry."""
 
 from __future__ import annotations
 

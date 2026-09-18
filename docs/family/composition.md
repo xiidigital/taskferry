@@ -1,21 +1,21 @@
 # Composition patterns
 
 Execution kinds compose. Composition is done in **application code**, by
-capability — Taskport never merges the abstractions and never auto-wires them.
-Taskport is not, and will not become, a workflow or DAG engine.
+capability — Taskferry never merges the abstractions and never auto-wires them.
+Taskferry is not, and will not become, a workflow or DAG engine.
 
 The frontier is the whole design:
 
 ```mermaid
 flowchart LR
     APP["Application<br/>what should happen"]
-    TP["Taskport<br/>how and where it executes"]
+    TP["Taskferry<br/>how and where it executes"]
     INFRA["Infrastructure"]
 
     APP --> TP --> INFRA
 ```
 
-Your application knows that a COG build follows metadata extraction. Taskport
+Your application knows that a COG build follows metadata extraction. Taskferry
 knows that one runs on a worker and the other in a container.
 
 ## Supported compositions
@@ -42,9 +42,9 @@ flowchart LR
 The task decides *what* should happen next; the job port decides *where* it runs.
 
 ```python
-from taskport import Taskport
+from taskferry import Taskferry
 
-runtime: Taskport = ...  # your application's runtime
+runtime: Taskferry = ...  # your application's runtime
 
 
 def extract_metadata(dataset_id: int) -> dict:
@@ -65,15 +65,15 @@ def extract_metadata(dataset_id: int) -> dict:
 ```
 
 Runnable version:
-[`examples/composed-flow`](https://github.com/taskport/taskport/tree/main/examples/composed-flow).
+[`examples/composed-flow`](https://github.com/taskferry/taskferry/tree/main/examples/composed-flow).
 
 ## Event → Task and Event → Job
 
 ```python
-from taskport import Taskport
-from taskport_events import Event
+from taskferry import Taskferry
+from taskferry_events import Event
 
-runtime: Taskport = ...
+runtime: Taskferry = ...
 
 
 def on_user_registered(event: Event) -> None:
@@ -87,10 +87,10 @@ def on_dataset_updated(event: Event) -> None:
 ## Schedule → anything
 
 ```python
-from taskport import Taskport
-from taskport_scheduler import CronTrigger, Schedule, schedulers
+from taskferry import Taskferry
+from taskferry_scheduler import CronTrigger, Schedule, schedulers
 
-runtime: Taskport = ...
+runtime: Taskferry = ...
 
 
 def nightly_reindex() -> None:
@@ -112,7 +112,7 @@ Every step propagates a `Correlation` — same `correlation_id`, advancing
 one logical flow, with no orchestration engine involved.
 
 ```python
-from taskport import Correlation, use_correlation
+from taskferry import Correlation, use_correlation
 
 with use_correlation(Correlation.start()):
     runtime.tasks.submit("myapp.tasks:extract_metadata", 42)
@@ -124,6 +124,6 @@ Procrastinate message field — so it survives the hop.
 ## Explicitly out of scope
 
 DAG workflows, state machines, sagas, durable execution and replacements for
-Temporal, Airflow, Step Functions or Cloud Workflows are **not** part of Taskport.
+Temporal, Airflow, Step Functions or Cloud Workflows are **not** part of Taskferry.
 It may integrate with them; it will not reinvent them. See
 [ADR-0002](../adr/0002-not-a-task-queue.md).

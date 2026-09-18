@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "taskferry-jobs"
+version = "0.2.0"
+description = "Batch job backends for Taskferry — AWS Batch, Kubernetes, Azure Container Apps."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Taskferry authors" }]
+keywords = ["taskferry", "jobs", "batch", "cloud-run", "aws-batch", "kubernetes"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Typing :: Typed",
+]
+dependencies = ["taskferry>=0.2,<0.3"]
+
+[project.optional-dependencies]
+aws = ["boto3>=1.34"]
+kubernetes = ["kubernetes>=29.0"]
+azure = ["azure-identity>=1.17", "azure-mgmt-appcontainers>=3.1"]
+
+[project.entry-points."taskferry.backends"]
+aws-batch = "taskferry_jobs.aws:make_backend"
+kubernetes = "taskferry_jobs.kubernetes:make_backend"
+containerapps = "taskferry_jobs.azure:make_backend"
+
+[project.urls]
+Homepage = "https://github.com/taskferry/taskferry-jobs"
+Documentation = "https://taskferry.dev/jobs"
+Source = "https://github.com/taskferry/taskferry-jobs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taskferry_jobs"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "README.md", "CHANGELOG.md", "LICENSE"]

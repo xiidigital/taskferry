@@ -1,12 +1,12 @@
 # Release process
 
 Each distribution versions and releases **independently** — SemVer, no lockstep
-(ADR-0014). A fix in the Azure adapter never blocks a `taskport` release.
+(ADR-0014). A fix in the Azure adapter never blocks a `taskferry` release.
 
 ## Versioning
 
 - **SemVer per distribution.** Bump the version in that package's `pyproject.toml`.
-- Inter-package ranges stay compatible, not pinned: `taskport>=0.2,<0.3`.
+- Inter-package ranges stay compatible, not pinned: `taskferry>=0.2,<0.3`.
 - Every release updates that package's `CHANGELOG.md` (Keep a Changelog style);
   mark breaking changes **BREAKING** with a migration note.
 
@@ -31,8 +31,8 @@ are stored anywhere.**
 tag is pushed. The tag is `<distribution>-v<version>`:
 
 ```bash
-git tag taskport-v0.2.0        && git push origin taskport-v0.2.0        # publishes taskport
-git tag taskport-celery-v0.1.0 && git push origin taskport-celery-v0.1.0 # publishes taskport-celery
+git tag taskferry-v0.2.0        && git push origin taskferry-v0.2.0        # publishes taskferry
+git tag taskferry-celery-v0.1.0 && git push origin taskferry-celery-v0.1.0 # publishes taskferry-celery
 ```
 
 The workflow derives the package from the tag, runs `uv build --package <dist>`,
@@ -42,7 +42,7 @@ First release of each package (one-time, per distribution):
 
 1. Create a **Trusted Publisher** on PyPI for the project (a *pending publisher*
    works before the project exists): <https://pypi.org/manage/account/publishing/>
-   with — Owner `xiidigital`, Repository `taskport`, Workflow `release.yml`,
+   with — Owner `xiidigital`, Repository `taskferry`, Workflow `release.yml`,
    Environment *(leave blank)*.
 2. Push the package's tag (above). Nothing publishes without that tag.
 

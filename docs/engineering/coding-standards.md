@@ -33,10 +33,10 @@ uv run ruff format . && uv run ruff check . && uv run mypy packages/*/src
   raises `UnsupportedCapability` for the rest. Never accept an option and silently
   ignore it — that is the one failure mode the whole model exists to prevent.
 - **Lazy provider imports.** An adapter imports its SDK *inside* the method that
-  needs it, never at module top level, so `import taskport_jobs` costs nothing
+  needs it, never at module top level, so `import taskferry_jobs` costs nothing
   until a cloud backend is actually built. There is a test for this.
-- **`taskport` has zero dependencies.** Enforced three ways (source scan, runtime
-  `sys.modules` check, metadata). Nothing in `packages/taskport` may import a
+- **`taskferry` has zero dependencies.** Enforced three ways (source scan, runtime
+  `sys.modules` check, metadata). Nothing in `packages/taskferry` may import a
   third-party package.
 - **Docstrings explain *why*.** Module docstrings state what the thing is, what it
   is deliberately *not*, and the honest limitations (delivery guarantee, what
@@ -44,7 +44,7 @@ uv run ruff format . && uv run ruff check . && uv run mypy packages/*/src
 
 ## Errors
 
-Raise the narrowest Taskport error (`SubmissionError`, `ExecutionNotFound`,
+Raise the narrowest Taskferry error (`SubmissionError`, `ExecutionNotFound`,
 `UnsupportedCapability`, `ConfigurationError`, `ProviderError`), never a bare
 `Exception`. Adapters wrap provider SDK errors in `ProviderError` (chaining with
 `from`) so callers depend on a stable type.

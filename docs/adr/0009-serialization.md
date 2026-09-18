@@ -52,7 +52,7 @@ tool an operator already has. Rejected for the default; the protocol allows it.
   `process_dataset(dataset)`. This is stated in the docs and enforced by eager
   validation.
 - A worker in another process, another container or another language can execute
-  a Taskport message.
+  a Taskferry message.
 - Resolving a name means importing a module, which is an RCE primitive if names
   arrive from an untrusted queue. `FunctionRegistry` therefore supports explicit
   registration and an import allowlist. See [security.md](../security.md).

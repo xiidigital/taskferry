@@ -1,6 +1,6 @@
 # Deployment profiles
 
-Taskport supports several deployment shapes. Serverless (no permanently-running
+Taskferry supports several deployment shapes. Serverless (no permanently-running
 worker) is a **first-class** requirement, not an afterthought (section 44).
 
 ## Minimal (traditional)
@@ -9,7 +9,7 @@ worker) is a **first-class** requirement, not an afterthought (section 44).
 Django ─▶ PostgreSQL ─▶ worker (management command)
 ```
 
-Backend: Django's built-in `DatabaseBackend` + `db_worker`, or `taskport-django`
+Backend: Django's built-in `DatabaseBackend` + `db_worker`, or `taskferry-django`
 with a Procrastinate-backed backend for a more capable PostgreSQL queue. One
 long-running worker process. Simplest to operate.
 
@@ -19,7 +19,7 @@ long-running worker process. Simplest to operate.
 Django ─▶ Redis ─▶ worker
 ```
 
-Backend: a `taskport-django` adapter over a maintained Redis task library
+Backend: a `taskferry-django` adapter over a maintained Redis task library
 (Dramatiq is the reference integration; Celery/Taskiq are alternatives). One or
 more worker processes.
 
@@ -72,6 +72,6 @@ broker ─▶ workers        Jobs: K8s Job        Events: Kafka/NATS        Sche
 | AWS and event-driven consumers        | AWS serverless (SQS → Lambda)  |
 | Kubernetes                            | Kubernetes profile             |
 
-Taskport lets you start Minimal and move to a serverless profile by swapping the
+Taskferry lets you start Minimal and move to a serverless profile by swapping the
 adapter and configuration — application code (your `@task` functions, `JobSpec`s,
 events) does not change.

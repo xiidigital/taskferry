@@ -10,7 +10,7 @@ Retries compose multiplicatively, which is almost never what anyone intends.
 ```mermaid
 flowchart TD
     APP["Application<br/>3 attempts"]
-    TP["Taskport<br/>3 attempts"]
+    TP["Taskferry<br/>3 attempts"]
     ENGINE["Engine<br/>5 attempts"]
     INFRA["Infrastructure<br/>2 attempts"]
 
@@ -28,14 +28,14 @@ happened to read it, with no statement anywhere about who acts on it.
 
 ## Decision
 
-**Taskport itself never retries.** A `RetryPolicy` is a portable *declaration of
+**Taskferry itself never retries.** A `RetryPolicy` is a portable *declaration of
 intent* that a backend translates into its engine's native retry configuration.
 
 `RetryOwner` records who will actually act on it:
 
 | Owner | Meaning | Effect |
 | --- | --- | --- |
-| `BACKEND` (default) | the engine retries natively | the policy is translated and Taskport stays out of the way |
+| `BACKEND` (default) | the engine retries natively | the policy is translated and Taskferry stays out of the way |
 | `APPLICATION` | the caller retries | the engine is configured for a single attempt, so the two do not multiply |
 | `NONE` | nobody retries | a failure is final |
 
@@ -43,7 +43,7 @@ intent* that a backend translates into its engine's native retry configuration.
 every adapter passes to its engine.
 
 The in-process backends (inline, thread, process) are a consistent special case:
-there, Taskport *is* the engine, so `BACKEND` means they retry themselves. The
+there, Taskferry *is* the engine, so `BACKEND` means they retry themselves. The
 Procrastinate adapter is the interesting one — its dispatcher raises
 Procrastinate's own retry signal, so the job is genuinely re-queued by
 Procrastinate with the requested delay rather than a worker slot being held while
@@ -51,7 +51,7 @@ something sleeps.
 
 ## Alternatives considered
 
-**Taskport performs retries uniformly across all backends.** Consistent, and
+**Taskferry performs retries uniformly across all backends.** Consistent, and
 wrong: retrying a remote task means holding the submitting process open, which is
 impossible for a fire-and-forget push queue and pointless for a Cloud Run job.
 Rejected.
