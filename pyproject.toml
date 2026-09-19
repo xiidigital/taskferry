@@ -134,6 +134,7 @@ module = [
     "procrastinate.*",
     "dramatiq.*",
     "celery.*",
+    "aiobotocore.*",
 ]
 ignore_missing_imports = true
 

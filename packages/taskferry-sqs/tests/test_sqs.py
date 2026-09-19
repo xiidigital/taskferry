@@ -277,3 +277,54 @@ class TestConsumer:
         processed = poll_forever(client, STANDARD_URL, should_stop=stop)
         assert processed == 0
         assert client.deleted == [], "a failed message must not be deleted"
+
+
+# --------------------------------------------------------------------------- #
+# Native async (aiobotocore)
+# --------------------------------------------------------------------------- #
+class FakeAsyncSQS:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.sent: list[dict[str, Any]] = []
+        self.fail = fail
+
+    async def send_message(self, **request: Any) -> dict[str, str]:
+        if self.fail:
+            raise RuntimeError("AWS.SimpleQueueService.NonExistentQueue")
+        self.sent.append(request)
+        return {"MessageId": f"amsg-{len(self.sent)}"}
+
+
+class TestSQSNativeAsync:
+    """`asubmit` sends through the async client, skipping the thread."""
+
+    async def test_asubmit_uses_the_injected_async_client(self) -> None:
+        async_client = FakeAsyncSQS()
+        b = backend(async_client=async_client)
+        execution = await b.asubmit(TaskSpec(task="myapp:send", args=(42,)))
+        assert execution.state is ExecutionState.QUEUED
+        assert execution.external_id == "amsg-1"
+        assert len(async_client.sent) == 1
+
+    async def test_asubmit_sends_the_same_envelope_as_submit(self) -> None:
+        async_client = FakeAsyncSQS()
+        b = backend(async_client=async_client)
+        await b.asubmit(TaskSpec(task="myapp:send", args=(42,), kwargs={"cc": "a"}))
+        body = json.loads(async_client.sent[0]["MessageBody"])
+        assert body["taskferry"] == ENVELOPE_VERSION
+        assert body["task"] == "myapp:send"
+        assert body["args"] == [42]
+
+    async def test_asubmit_wraps_client_errors_as_submission_error(self) -> None:
+        b = backend(async_client=FakeAsyncSQS(fail=True))
+        with pytest.raises(SubmissionError):
+            await b.asubmit(TaskSpec(task="myapp:send"))
+
+    async def test_asubmit_falls_back_to_the_thread_path_without_aiobotocore(self) -> None:
+        from importlib.util import find_spec
+
+        if find_spec("aiobotocore") is not None:  # pragma: no cover - env dependent
+            pytest.skip("aiobotocore installed; native path is exercised elsewhere")
+        sync = FakeSQS()
+        execution = await backend(client=sync).asubmit(TaskSpec(task="myapp:send"))
+        assert execution.state is ExecutionState.QUEUED
+        assert len(sync.sent) == 1

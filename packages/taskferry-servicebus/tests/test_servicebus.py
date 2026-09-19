@@ -267,3 +267,76 @@ class TestConsumer:
         assert receive_forever(client, "tasks", should_stop=stop) == 0
         assert len(client.receiver.abandoned) == 1
         assert client.receiver.completed == []
+
+
+# --------------------------------------------------------------------------- #
+# Native async (azure.servicebus.aio)
+# --------------------------------------------------------------------------- #
+class FakeAsyncSender:
+    def __init__(self, sink: list[Any], *, fail: bool = False) -> None:
+        self._sink = sink
+        self._fail = fail
+
+    async def __aenter__(self) -> FakeAsyncSender:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+    async def send_messages(self, message: Any) -> None:
+        if self._fail:
+            raise RuntimeError("ServiceBusError: entity not found")
+        self._sink.append(message)
+
+
+class FakeAsyncServiceBus:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.sent: list[Any] = []
+        self.fail = fail
+
+    def get_queue_sender(self, queue_name: str) -> FakeAsyncSender:
+        return FakeAsyncSender(self.sent, fail=self.fail)
+
+
+def async_backend(**overrides: Any) -> ServiceBusTaskBackend:
+    return ServiceBusTaskBackend(
+        queue_name="tasks",
+        client=None,
+        async_client=overrides.pop("async_client", FakeAsyncServiceBus()),
+        message_factory=fake_message_factory,
+        **overrides,
+    )
+
+
+class TestServiceBusNativeAsync:
+    """`asubmit` sends through the async client, skipping the thread."""
+
+    async def test_asubmit_uses_the_injected_async_client(self) -> None:
+        async_client = FakeAsyncServiceBus()
+        b = async_backend(async_client=async_client)
+        execution = await b.asubmit(TaskSpec(task="myapp:reindex", args=(1,)))
+        assert execution.state is ExecutionState.QUEUED
+        assert len(async_client.sent) == 1
+        assert execution.external_id is not None
+
+    async def test_asubmit_sends_the_envelope_body(self) -> None:
+        async_client = FakeAsyncServiceBus()
+        b = async_backend(async_client=async_client)
+        await b.asubmit(TaskSpec(task="myapp:reindex", args=(1,)))
+        body = json.loads(async_client.sent[0].body)
+        assert body["task"] == "myapp:reindex"
+
+    async def test_asubmit_wraps_client_errors_as_submission_error(self) -> None:
+        b = async_backend(async_client=FakeAsyncServiceBus(fail=True))
+        with pytest.raises(SubmissionError):
+            await b.asubmit(TaskSpec(task="myapp:reindex"))
+
+    async def test_asubmit_falls_back_to_the_thread_path_without_the_sdk(self) -> None:
+        from taskferry_servicebus.backend import _has_servicebus
+
+        if _has_servicebus():  # pragma: no cover - env dependent
+            pytest.skip("azure-servicebus installed; native path exercised elsewhere")
+        client = FakeServiceBus()
+        execution = await backend(client=client).asubmit(TaskSpec(task="myapp:reindex"))
+        assert execution.state is ExecutionState.QUEUED
+        assert len(client.sent) == 1

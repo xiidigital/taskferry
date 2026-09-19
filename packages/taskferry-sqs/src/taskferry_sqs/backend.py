@@ -30,6 +30,8 @@ class constant: a FIFO queue and a standard queue genuinely differ, and one
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
@@ -83,6 +85,7 @@ class SQSTaskBackend(BaseBackend):
         queue_url: str | None = None,
         region: str | None = None,
         client: Any = None,
+        async_client: Any = None,
         message_group_id: str | None = None,
         name: str = "sqs",
     ) -> None:
@@ -94,6 +97,7 @@ class SQSTaskBackend(BaseBackend):
         self._queue_url = queue_url
         self._region = region
         self._client = client
+        self._async_client = async_client
         self._message_group_id = message_group_id
         self._name = name
 
@@ -145,10 +149,10 @@ class SQSTaskBackend(BaseBackend):
             )
         return delay
 
-    def _submit(self, spec: ExecutionSpec) -> Execution:
-        assert isinstance(spec, TaskSpec)
+    def _build_request(self, spec: TaskSpec) -> dict[str, Any]:
+        """The ``send_message`` request for a spec. Pure, so both the sync and the
+        native-async paths send exactly the same thing."""
         options = spec.options_for("sqs")
-
         request: dict[str, Any] = {
             "QueueUrl": self._queue_url,
             "MessageBody": json.dumps(build_envelope(spec)),
@@ -170,15 +174,9 @@ class SQSTaskBackend(BaseBackend):
             delay = self._delay_seconds(spec)
             if delay:
                 request["DelaySeconds"] = delay
+        return request
 
-        try:
-            response = self._sqs().send_message(**request)
-        except Exception as exc:
-            raise SubmissionError(
-                f"SQS could not send {spec.task!r} to {self._queue_url}: {exc}",
-                backend=self._name,
-            ) from exc
-
+    def _execution_from(self, spec: TaskSpec, response: Any) -> Execution:
         message_id = response.get("MessageId") if isinstance(response, dict) else None
         return Execution(
             id=new_execution_id(ExecutionKind.TASK),
@@ -201,6 +199,77 @@ class SQSTaskBackend(BaseBackend):
             metadata={"queue": spec.queue, "queue_url": self._queue_url},
         )
 
+    def _submit(self, spec: ExecutionSpec) -> Execution:
+        assert isinstance(spec, TaskSpec)
+        request = self._build_request(spec)
+        try:
+            response = self._sqs().send_message(**request)
+        except Exception as exc:
+            raise SubmissionError(
+                f"SQS could not send {spec.task!r} to {self._queue_url}: {exc}",
+                backend=self._name,
+            ) from exc
+        return self._execution_from(spec, response)
+
+    # -- native async (aiobotocore) ----------------------------------------------- #
+    @asynccontextmanager
+    async def _async_sqs(self) -> AsyncIterator[Any]:
+        """An async SQS client: the injected one, or a per-call aiobotocore one."""
+        if self._async_client is not None:
+            yield self._async_client
+            return
+        session = _aiobotocore_session()
+        async with session.create_client("sqs", region_name=self._region) as client:
+            yield client
+
+    async def asubmit(self, spec: ExecutionSpec) -> Execution:
+        """Native async submit via aiobotocore, falling back to the thread path.
+
+        When neither an ``async_client`` is injected nor ``aiobotocore`` is
+        installed, this defers to :meth:`BaseBackend.asubmit` (``to_thread``),
+        which is correct — just not thread-free.
+        """
+        if self._async_client is None and not _has_aiobotocore():
+            return await super().asubmit(spec)
+        assert isinstance(spec, TaskSpec)
+        self.validate(spec)
+        self.hooks.before_submit(spec, self.name)
+        try:
+            request = self._build_request(spec)
+            async with self._async_sqs() as client:
+                response = await client.send_message(**request)
+            execution = self._execution_from(spec, response)
+        except SubmissionError as exc:
+            self.hooks.on_submit_error(spec, self.name, exc)
+            raise
+        except Exception as exc:
+            error = SubmissionError(
+                f"SQS could not send {spec.task!r} to {self._queue_url}: {exc}",
+                backend=self._name,
+            )
+            self.hooks.on_submit_error(spec, self.name, error)
+            raise error from exc
+        self.hooks.after_submit(spec, execution)
+        return execution
+
+
+def _has_aiobotocore() -> bool:
+    """Whether the async client library is importable, without importing it."""
+    from importlib.util import find_spec
+
+    return find_spec("aiobotocore") is not None
+
+
+def _aiobotocore_session() -> Any:
+    """A lazily-imported aiobotocore session, with an actionable error."""
+    try:
+        from aiobotocore.session import get_session
+    except ImportError as exc:  # pragma: no cover - depends on the environment
+        raise ConfigurationError(
+            "native async SQS needs aiobotocore: pip install 'taskferry-sqs[aws-async]'"
+        ) from exc
+    return get_session()
+
 
 def make_backend(**options: Any) -> SQSTaskBackend:
     """Entry point for ``{"factory": "sqs", ...}`` configuration."""
@@ -208,6 +277,7 @@ def make_backend(**options: Any) -> SQSTaskBackend:
         queue_url=options.get("queue_url"),
         region=options.get("region"),
         client=options.get("client"),
+        async_client=options.get("async_client"),
         message_group_id=options.get("message_group_id"),
         name=str(options.get("name", "sqs")),
     )

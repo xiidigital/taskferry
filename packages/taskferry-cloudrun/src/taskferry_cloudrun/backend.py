@@ -140,6 +140,8 @@ class CloudRunJobBackend(BaseBackend):
         location: str | None = None,
         jobs_client: Any = None,
         executions_client: Any = None,
+        jobs_async_client: Any = None,
+        executions_async_client: Any = None,
         logging_client: Any = None,
         name: str = "cloudrun",
         tracked_ids: int = 10_000,
@@ -153,6 +155,8 @@ class CloudRunJobBackend(BaseBackend):
         self._location = location
         self._jobs_client = jobs_client
         self._executions_client = executions_client
+        self._jobs_async_client = jobs_async_client
+        self._executions_async_client = executions_async_client
         self._logging_client = logging_client
         self._name = name
         # Cloud Run names executions itself, so remember which of its names goes
@@ -195,6 +199,18 @@ class CloudRunJobBackend(BaseBackend):
             self._logging_client = _logging_v2().Client(project=self._project)
         return self._logging_client
 
+    def _async_jobs(self) -> Any:
+        """The async Jobs client: injected, lazily built, or ``None`` if the SDK
+        is absent (the caller then falls back to the thread path)."""
+        if self._jobs_async_client is None and _has_run_v2():
+            self._jobs_async_client = _run_v2().JobsAsyncClient()
+        return self._jobs_async_client
+
+    def _async_executions(self) -> Any:
+        if self._executions_async_client is None and _has_run_v2():
+            self._executions_async_client = _run_v2().ExecutionsAsyncClient()
+        return self._executions_async_client
+
     # -- resource names ----------------------------------------------------------- #
     def job_resource(self, spec: JobSpec) -> str:
         """Fully-qualified Cloud Run Job resource this spec targets."""
@@ -204,25 +220,28 @@ class CloudRunJobBackend(BaseBackend):
         return f"projects/{self._project}/locations/{self._location}/jobs/{spec.job}"
 
     # -- submission ---------------------------------------------------------------- #
-    def _submit(self, spec: ExecutionSpec) -> Execution:
-        assert isinstance(spec, JobSpec)
+    def _submit_request(self, spec: JobSpec) -> dict[str, Any]:
         request: dict[str, Any] = {"name": self.job_resource(spec)}
         overrides = self._overrides(spec)
         if overrides:
             request["overrides"] = overrides
+        return request
 
+    def _submit(self, spec: ExecutionSpec) -> Execution:
+        assert isinstance(spec, JobSpec)
         try:
-            operation = self._jobs().run_job(request=request)
+            operation = self._jobs().run_job(request=self._submit_request(spec))
         except Exception as exc:
             raise SubmissionError(
                 f"Cloud Run could not start job {spec.job!r} in {self._location}: {exc}",
                 backend=self._name,
             ) from exc
+        return self._execution_from_operation(spec, operation)
 
+    def _execution_from_operation(self, spec: JobSpec, operation: Any) -> Execution:
         external_id = _execution_name(operation)
         execution_id = new_execution_id(ExecutionKind.JOB)
         self._ids.remember(str(execution_id), external_id)
-
         return Execution(
             id=execution_id,
             kind=ExecutionKind.JOB,
@@ -264,7 +283,7 @@ class CloudRunJobBackend(BaseBackend):
         return overrides
 
     # -- observation ------------------------------------------------------------------ #
-    def _get(self, execution_id: ExecutionId) -> Execution:
+    def _resolve_external_id(self, execution_id: ExecutionId) -> str:
         external_id = self._ids.resolve(str(execution_id))
         if external_id is None:
             raise ExecutionNotFound(
@@ -273,17 +292,28 @@ class CloudRunJobBackend(BaseBackend):
                 "from another process",
                 backend=self._name,
             )
+        return external_id
+
+    def _get(self, execution_id: ExecutionId) -> Execution:
+        external_id = self._resolve_external_id(execution_id)
         try:
             remote = self._executions().get_execution(name=external_id)
         except Exception as exc:
-            if _is_not_found(exc):
-                raise ExecutionNotFound(
-                    f"Cloud Run has no execution {external_id!r}", backend=self._name
-                ) from exc
-            raise BackendError(
-                f"Cloud Run could not read execution {external_id!r}: {exc}", backend=self._name
-            ) from exc
+            raise self._read_error(external_id, exc) from exc
+        return self._execution_from_remote(execution_id, external_id, remote)
 
+    def _read_error(self, external_id: str, exc: Exception) -> Exception:
+        if _is_not_found(exc):
+            return ExecutionNotFound(
+                f"Cloud Run has no execution {external_id!r}", backend=self._name
+            )
+        return BackendError(
+            f"Cloud Run could not read execution {external_id!r}: {exc}", backend=self._name
+        )
+
+    def _execution_from_remote(
+        self, execution_id: ExecutionId, external_id: str, remote: Any
+    ) -> Execution:
         state, error = map_execution_state(remote)
         return Execution(
             id=execution_id,
@@ -319,6 +349,60 @@ class CloudRunJobBackend(BaseBackend):
                 f"Cloud Run could not cancel execution {external_id!r}: {exc}", backend=self._name
             ) from exc
         return self._get(execution_id)
+
+    # -- native async (run_v2 async clients) -------------------------------------- #
+    async def asubmit(self, spec: ExecutionSpec) -> Execution:
+        """Native async submit via ``JobsAsyncClient``, else the thread path."""
+        client = self._async_jobs()
+        if client is None:
+            return await super().asubmit(spec)
+        assert isinstance(spec, JobSpec)
+        self.validate(spec)
+        self.hooks.before_submit(spec, self.name)
+        try:
+            operation = await client.run_job(request=self._submit_request(spec))
+            execution = self._execution_from_operation(spec, operation)
+        except Exception as exc:
+            error = SubmissionError(
+                f"Cloud Run could not start job {spec.job!r} in {self._location}: {exc}",
+                backend=self._name,
+            )
+            self.hooks.on_submit_error(spec, self.name, error)
+            raise error from exc
+        self.hooks.after_submit(spec, execution)
+        return execution
+
+    async def aget(self, execution_id: ExecutionId | str) -> Execution:
+        """Native async state read via ``ExecutionsAsyncClient``."""
+        client = self._async_executions()
+        if client is None:
+            return await super().aget(execution_id)
+        self.capabilities.require(Capability.STATE)
+        eid = ExecutionId(str(execution_id))
+        external_id = self._resolve_external_id(eid)
+        try:
+            remote = await client.get_execution(name=external_id)
+        except Exception as exc:
+            raise self._read_error(external_id, exc) from exc
+        return self._execution_from_remote(eid, external_id, remote)
+
+    async def acancel(self, execution_id: ExecutionId | str) -> Execution:
+        """Native async cancel via ``ExecutionsAsyncClient``."""
+        client = self._async_executions()
+        if client is None:
+            return await super().acancel(execution_id)
+        self.capabilities.require(Capability.CANCEL)
+        eid = ExecutionId(str(execution_id))
+        external_id = self._resolve_external_id(eid)
+        try:
+            await client.cancel_execution(name=external_id)
+        except Exception as exc:
+            raise BackendError(
+                f"Cloud Run could not cancel execution {external_id!r}: {exc}", backend=self._name
+            ) from exc
+        execution = await self.aget(eid)
+        self.hooks.on_cancel(execution)
+        return execution
 
     def logs_uri(self, external_id: str) -> str:
         """A Cloud Logging console link for an execution. No request is made."""
@@ -424,6 +508,16 @@ def _run_v2() -> Any:
     return run_v2
 
 
+def _has_run_v2() -> bool:
+    """Whether the Cloud Run SDK is importable, without importing it."""
+    from importlib.util import find_spec
+
+    try:
+        return find_spec("google.cloud.run_v2") is not None
+    except ModuleNotFoundError:
+        return False
+
+
 def _logging_v2() -> Any:
     """Import ``google.cloud.logging_v2`` lazily, with an actionable error."""
     try:
@@ -500,6 +594,8 @@ def make_backend(**options: Any) -> CloudRunJobBackend:
         location=options.get("location"),
         jobs_client=options.get("jobs_client"),
         executions_client=options.get("executions_client"),
+        jobs_async_client=options.get("jobs_async_client"),
+        executions_async_client=options.get("executions_async_client"),
         logging_client=options.get("logging_client"),
         name=str(options.get("name", "cloudrun")),
         tracked_ids=int(options.get("tracked_ids", 10_000)),
