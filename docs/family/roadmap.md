@@ -49,14 +49,16 @@ the async surface (`AsyncTaskferry`). Zero dependencies, enforced three ways.
 
 Ordered by how much each would teach us about whether the abstraction holds.
 
-1. **A native async events surface.** The task and job backends now have native
-   async paths (below); the events publisher does not — `publish`/`publish_batch`
-   are sync-only, so there is no `apublish` to override. Adding one is a port
-   change (a new public method, a contract test, a `to_thread` default on
-   `BaseEventPublisher`) rather than an adapter optimisation, so it is called out
-   separately rather than folded into the async work already shipped.
+Nothing is queued here right now — the async work below covered the last
+standing item. New entries land when a concrete need appears, not before.
 
 Recently shipped from this list:
+
+- **An async events surface.** `EventPublisher` now has `apublish`/
+  `apublish_batch`, with a `to_thread` default on `BaseEventPublisher` so every
+  event adapter gets a correct async path. The AWS adapters (SNS, EventBridge)
+  and the in-process bus override it natively; Pub/Sub, Event Grid and Kafka use
+  the default (Kafka's client has no asyncio API).
 
 - **Natively async task and job adapters.** `taskferry-sqs` (aiobotocore),
   `taskferry-cloudtasks`, `taskferry-servicebus`, `taskferry-procrastinate` and

@@ -105,6 +105,11 @@ class InMemoryEventBus(BaseEventPublisher):
         metadata = ProviderMetadata(provider="inmemory", provider_id=event.id)
         return PublishResult(event_id=event.id, provider_metadata=metadata)
 
+    async def _apublish(self, event: Event) -> PublishResult:
+        # In-process and non-blocking: publish directly, no worker thread. Sync
+        # subscriber handlers still run inline, exactly as for ``publish``.
+        return self._publish(event)
+
     # -- replay / retention ------------------------------------------------- #
     @property
     def history(self) -> tuple[Event, ...]:
