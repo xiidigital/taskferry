@@ -141,3 +141,54 @@ def test_kafka_produce_uses_subject_as_key() -> None:
 class TestKafkaContract(EventPublisherContract):
     def make_publisher(self) -> KafkaPublisher:
         return KafkaPublisher(topic="t", producer=_FakeProducer())
+
+
+# --------------------------------------------------------------------------- #
+# Native async (aiobotocore)
+# --------------------------------------------------------------------------- #
+class _FakeAsyncSns:
+    def __init__(self) -> None:
+        self.published: list[dict] = []
+
+    async def publish(self, **kwargs: object) -> dict:
+        self.published.append(kwargs)
+        return {"MessageId": "async-sns-1"}
+
+
+class _FakeAsyncEvents:
+    def __init__(self, failed: int = 0) -> None:
+        self.entries: list[dict] = []
+        self._failed = failed
+
+    async def put_events(self, Entries: list[dict]) -> dict:
+        self.entries.extend(Entries)
+        return {"FailedEntryCount": self._failed, "Entries": [{"EventId": "async-eb-1"}]}
+
+
+class TestAwsEventsNativeAsync:
+    """`apublish` sends through the async client, skipping the worker thread."""
+
+    async def test_sns_apublish_uses_the_async_client(self) -> None:
+        client = _FakeAsyncSns()
+        pub = SnsPublisher(topic_arn="arn:aws:sns:us-east-1:1:t", async_client=client)
+        result = await pub.apublish(Event(type="order.placed", source="urn:shop", data={"id": "1"}))
+        assert result.provider_metadata.provider_id == "async-sns-1"
+        assert len(client.published) == 1
+
+    async def test_eventbridge_apublish_uses_the_async_client(self) -> None:
+        client = _FakeAsyncEvents()
+        pub = EventBridgePublisher(event_bus_name="bus", async_client=client)
+        result = await pub.apublish(
+            Event(type="dataset.updated", source="urn:svc", data={"id": "9"})
+        )
+        assert result.provider_metadata.provider_id == "async-eb-1"
+        assert client.entries[0]["EventBusName"] == "bus"
+
+    async def test_eventbridge_apublish_raises_on_failed_entries(self) -> None:
+        import pytest
+
+        from taskferry.core import ProviderError
+
+        pub = EventBridgePublisher(async_client=_FakeAsyncEvents(failed=1))
+        with pytest.raises(ProviderError):
+            await pub.apublish(Event(type="t", source="s"))

@@ -49,5 +49,19 @@ class EventPublisherContract(ABC):
         results = publisher.publish_batch(events)
         assert [r.event_id for r in results] == [e.id for e in events]
 
+    async def test_apublish_returns_result_bound_to_event(self) -> None:
+        publisher = self.make_publisher()
+        event = self.sample_event()
+        result = await publisher.apublish(event)
+        assert isinstance(result, PublishResult)
+        assert result.event_id == event.id
+        assert result.provider == publisher.provider
+
+    async def test_apublish_batch(self) -> None:
+        publisher = self.make_publisher()
+        events = [self.sample_event(), self.sample_event()]
+        results = await publisher.apublish_batch(events)
+        assert [r.event_id for r in results] == [e.id for e in events]
+
 
 __all__ = ["EventPublisherContract"]
