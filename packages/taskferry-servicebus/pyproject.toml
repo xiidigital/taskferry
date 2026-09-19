@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "taskferry-servicebus"
-version = "0.2.0"
+version = "0.3.0"
 description = "Azure Service Bus task backend for Taskferry — pull-based tasks with scheduling."
 readme = "README.md"
 requires-python = ">=3.12"

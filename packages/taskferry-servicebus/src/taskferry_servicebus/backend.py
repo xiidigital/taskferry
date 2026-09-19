@@ -24,7 +24,8 @@ one message by id after it is enqueued.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
@@ -74,6 +75,7 @@ class ServiceBusTaskBackend(BaseBackend):
         connection_string: str | None = None,
         queue_name: str | None = None,
         client: Any = None,
+        async_client: Any = None,
         credential: Any = None,
         namespace: str | None = None,
         message_factory: MessageFactory | None = None,
@@ -81,7 +83,12 @@ class ServiceBusTaskBackend(BaseBackend):
     ) -> None:
         if not queue_name:
             raise ConfigurationError("ServiceBusTaskBackend needs 'queue_name'")
-        if client is None and not connection_string and not (credential and namespace):
+        if (
+            client is None
+            and async_client is None
+            and not connection_string
+            and not (credential and namespace)
+        ):
             raise ConfigurationError(
                 "ServiceBusTaskBackend needs either 'connection_string', or "
                 "'namespace' plus a 'credential' (Managed Identity), or an injected client"
@@ -89,6 +96,7 @@ class ServiceBusTaskBackend(BaseBackend):
         self._connection_string = connection_string
         self._queue_name = queue_name
         self._client = client
+        self._async_client = async_client
         self._credential = credential
         self._namespace = namespace
         self._message_factory = message_factory
@@ -169,6 +177,9 @@ class ServiceBusTaskBackend(BaseBackend):
                 backend=self._name,
             ) from exc
 
+        return self._execution_from(spec, message_id)
+
+    def _execution_from(self, spec: TaskSpec, message_id: str) -> Execution:
         return Execution(
             id=new_execution_id(ExecutionKind.TASK),
             kind=ExecutionKind.TASK,
@@ -187,6 +198,68 @@ class ServiceBusTaskBackend(BaseBackend):
             metadata={"queue": spec.queue, "queue_name": self._queue_name},
         )
 
+    # -- native async (azure.servicebus.aio) -------------------------------------- #
+    @asynccontextmanager
+    async def _async_service_bus(self) -> AsyncIterator[Any]:
+        if self._async_client is not None:
+            yield self._async_client
+            return
+        client = _async_servicebus_client(
+            self._connection_string, self._namespace, self._credential
+        )
+        async with client:
+            yield client
+
+    async def asubmit(self, spec: ExecutionSpec) -> Execution:
+        """Native async submit via ``azure.servicebus.aio``, else the thread path."""
+        if self._async_client is None and not _has_servicebus():
+            return await super().asubmit(spec)
+        assert isinstance(spec, TaskSpec)
+        self.validate(spec)
+        self.hooks.before_submit(spec, self.name)
+        message_id = spec.idempotency_key or new_id("sbmsg")
+        message = self._build_message(spec, message_id)
+        try:
+            async with self._async_service_bus() as client:
+                sender = client.get_queue_sender(self._queue_name)
+                async with sender:
+                    await sender.send_messages(message)
+            execution = self._execution_from(spec, message_id)
+        except Exception as exc:
+            error = SubmissionError(
+                f"Service Bus could not send {spec.task!r} to queue {self._queue_name!r}: {exc}",
+                backend=self._name,
+            )
+            self.hooks.on_submit_error(spec, self.name, error)
+            raise error from exc
+        self.hooks.after_submit(spec, execution)
+        return execution
+
+
+def _has_servicebus() -> bool:
+    """Whether the Azure Service Bus SDK is importable, without importing it."""
+    from importlib.util import find_spec
+
+    try:
+        return find_spec("azure.servicebus.aio") is not None
+    except ModuleNotFoundError:
+        return False
+
+
+def _async_servicebus_client(
+    connection_string: str | None, namespace: str | None, credential: Any
+) -> Any:
+    """A lazily-built ``azure.servicebus.aio.ServiceBusClient``."""
+    try:
+        from azure.servicebus.aio import ServiceBusClient
+    except ImportError as exc:  # pragma: no cover - depends on the environment
+        raise ConfigurationError(
+            "the Service Bus backend needs the Azure SDK: pip install 'taskferry-servicebus[azure]'"
+        ) from exc
+    if connection_string:
+        return ServiceBusClient.from_connection_string(connection_string)
+    return ServiceBusClient(fully_qualified_namespace=namespace, credential=credential)
+
 
 def make_backend(**options: Any) -> ServiceBusTaskBackend:
     """Entry point for ``{"factory": "servicebus", ...}`` configuration."""
@@ -194,6 +267,7 @@ def make_backend(**options: Any) -> ServiceBusTaskBackend:
         connection_string=options.get("connection_string"),
         queue_name=options.get("queue_name"),
         client=options.get("client"),
+        async_client=options.get("async_client"),
         credential=options.get("credential"),
         namespace=options.get("namespace"),
         message_factory=options.get("message_factory"),

@@ -373,3 +373,82 @@ class TestCloudRunLogStreaming:
         backend = make_backend(logging_client=logging)
         execution = backend.submit(JobSpec(job="j", image="i"))
         assert list(backend.stream_logs(execution.id, poll_interval=0.0, timeout=5)) == []
+
+
+# --------------------------------------------------------------------------- #
+# Native async (run_v2 async clients)
+# --------------------------------------------------------------------------- #
+class FakeAsyncJobsClient:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.requests: list[dict[str, Any]] = []
+        self.fail = fail
+
+    async def run_job(self, *, request: dict[str, Any]) -> SimpleNamespace:
+        if self.fail:
+            raise RuntimeError("permission denied on run_job")
+        self.requests.append(request)
+        name = f"{request['name']}/executions/aexec-{len(self.requests)}"
+        return SimpleNamespace(metadata=SimpleNamespace(name=name))
+
+
+class FakeAsyncExecutionsClient:
+    def __init__(self, execution: Any = None) -> None:
+        self.execution = execution if execution is not None else execution_proto(running=1)
+        self.cancelled: list[str] = []
+
+    async def get_execution(self, *, name: str) -> Any:
+        return self.execution
+
+    async def cancel_execution(self, *, name: str) -> None:
+        self.cancelled.append(name)
+        self.execution = execution_proto(cancelled=1, completion_time=datetime.now(UTC))
+
+
+class TestCloudRunNativeAsync:
+    """`asubmit`/`aget`/`acancel` use the run_v2 async clients, skipping the thread."""
+
+    async def test_asubmit_uses_the_async_jobs_client(self) -> None:
+        jobs = FakeAsyncJobsClient()
+        backend = make_backend(jobs_async_client=jobs)
+        execution = await backend.asubmit(JobSpec(job="build-cog", image="i"))
+        assert execution.state is ExecutionState.QUEUED
+        assert len(jobs.requests) == 1
+        assert "/executions/aexec-1" in (execution.external_id or "")
+
+    async def test_aget_uses_the_async_executions_client(self) -> None:
+        executions = FakeAsyncExecutionsClient(
+            execution_proto(task_count=1, succeeded=1, completion_time=datetime.now(UTC))
+        )
+        backend = make_backend(
+            jobs_async_client=FakeAsyncJobsClient(), executions_async_client=executions
+        )
+        submitted = await backend.asubmit(JobSpec(job="build-cog", image="i"))
+        fetched = await backend.aget(submitted.id)
+        assert fetched.state is ExecutionState.SUCCEEDED
+
+    async def test_acancel_goes_through_the_async_client(self) -> None:
+        executions = FakeAsyncExecutionsClient()
+        backend = make_backend(
+            jobs_async_client=FakeAsyncJobsClient(), executions_async_client=executions
+        )
+        submitted = await backend.asubmit(JobSpec(job="build-cog", image="i"))
+        cancelled = await backend.acancel(submitted.id)
+        assert executions.cancelled
+        assert cancelled.state is ExecutionState.CANCELLED
+
+    async def test_asubmit_wraps_errors_as_submission_error(self) -> None:
+        backend = make_backend(jobs_async_client=FakeAsyncJobsClient(fail=True))
+        with pytest.raises(SubmissionError):
+            await backend.asubmit(JobSpec(job="build-cog", image="i"))
+
+    async def test_asubmit_falls_back_to_the_thread_path_without_the_sdk(self) -> None:
+        from taskferry_cloudrun.backend import _has_run_v2
+
+        if _has_run_v2():  # pragma: no cover - env dependent
+            pytest.skip("google-cloud-run installed; native path exercised elsewhere")
+        jobs = FakeJobsClient()
+        execution = await make_backend(jobs_client=jobs).asubmit(
+            JobSpec(job="build-cog", image="i")
+        )
+        assert execution.state is ExecutionState.QUEUED
+        assert len(jobs.requests) == 1

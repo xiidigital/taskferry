@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "taskferry-sqs"
-version = "0.2.0"
+version = "0.3.0"
 description = "AWS SQS task backend for Taskferry — pull-based task delivery."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,6 +25,7 @@ dependencies = ["taskferry>=0.2,<0.3"]
 
 [project.optional-dependencies]
 aws = ["boto3>=1.34"]
+aws-async = ["aiobotocore>=2.13"]
 
 [project.entry-points."taskferry.backends"]
 sqs = "taskferry_sqs:make_backend"

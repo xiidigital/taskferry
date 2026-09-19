@@ -170,13 +170,8 @@ class ProcrastinateTaskBackend(BaseBackend):
         return self._app
 
     # -- submission --------------------------------------------------------------- #
-    def _submit(self, spec: ExecutionSpec) -> Execution:
-        assert isinstance(spec, TaskSpec)
-        # Resolve the app first, outside the try below. A missing or unresolvable
-        # App is a ConfigurationError and must stay one — reporting it as "the
-        # engine refused the submission" sends whoever is debugging to look at
-        # PostgreSQL when the problem is a settings file.
-        app = self.app()
+    def _deferrer_kwargs(self, spec: TaskSpec) -> dict[str, Any]:
+        """The ``configure_task`` kwargs for a spec. Shared by both paths."""
         options = spec.options_for("procrastinate")
         deferrer_kwargs: dict[str, Any] = {
             "name": self._dispatch_task,
@@ -184,33 +179,21 @@ class ProcrastinateTaskBackend(BaseBackend):
             "priority": spec.priority,
             "schedule_at": spec.scheduled_for(),
         }
-
         lock = options.get("lock", self._default_lock)
         if lock is not None:
             deferrer_kwargs["lock"] = str(lock)
-
         # An idempotency key maps onto queueing_lock, which is Procrastinate's
         # real mechanism for "do not enqueue this twice while one is pending".
         # It is honest deduplication, not an exactly-once promise.
         queueing_lock = options.get("queueing_lock", spec.idempotency_key)
         if queueing_lock is not None:
             deferrer_kwargs["queueing_lock"] = str(queueing_lock)
-
         for key, value in options.items():
             if key not in {"lock", "queueing_lock"}:
                 deferrer_kwargs[key] = value
+        return deferrer_kwargs
 
-        message = build_message(spec)
-        try:
-            deferrer = app.configure_task(**deferrer_kwargs)
-            job_id = deferrer.defer(message=message)
-        except Exception as exc:
-            raise SubmissionError(
-                f"procrastinate could not defer {spec.task!r} on queue {spec.queue!r}: {exc}",
-                backend=self._name,
-            ) from exc
-
-        now = datetime.now(UTC)
+    def _execution_from(self, spec: TaskSpec, job_id: Any) -> Execution:
         execution_id = new_execution_id(ExecutionKind.TASK)
         self._ids.remember(str(execution_id), str(job_id))
         return Execution(
@@ -219,7 +202,7 @@ class ProcrastinateTaskBackend(BaseBackend):
             backend=self._name,
             state=ExecutionState.QUEUED,
             name=spec.name,
-            created_at=now,
+            created_at=datetime.now(UTC),
             external_id=str(job_id),
             correlation=spec.correlation,
             provider_metadata=ProviderMetadata(
@@ -230,6 +213,53 @@ class ProcrastinateTaskBackend(BaseBackend):
             ),
             metadata={"queue": spec.queue, "procrastinate_job_id": str(job_id)},
         )
+
+    def _submit(self, spec: ExecutionSpec) -> Execution:
+        assert isinstance(spec, TaskSpec)
+        # Resolve the app first, outside the try below. A missing or unresolvable
+        # App is a ConfigurationError and must stay one — reporting it as "the
+        # engine refused the submission" sends whoever is debugging to look at
+        # PostgreSQL when the problem is a settings file.
+        app = self.app()
+        message = build_message(spec)
+        try:
+            deferrer = app.configure_task(**self._deferrer_kwargs(spec))
+            job_id = deferrer.defer(message=message)
+        except Exception as exc:
+            raise SubmissionError(
+                f"procrastinate could not defer {spec.task!r} on queue {spec.queue!r}: {exc}",
+                backend=self._name,
+            ) from exc
+        return self._execution_from(spec, job_id)
+
+    async def asubmit(self, spec: ExecutionSpec) -> Execution:
+        """Native async defer via Procrastinate's ``defer_async``.
+
+        Procrastinate's deferrer exposes ``defer_async`` on an async-capable App;
+        this uses it so an async caller enqueues without a worker thread. If the
+        deferrer has no ``defer_async`` (a very old release), it falls back to
+        :meth:`BaseBackend.asubmit` (``to_thread``), which is still correct.
+        """
+        assert isinstance(spec, TaskSpec)
+        app = self.app()
+        deferrer = app.configure_task(**self._deferrer_kwargs(spec))
+        if not hasattr(deferrer, "defer_async"):
+            return await super().asubmit(spec)
+        self.validate(spec)
+        self.hooks.before_submit(spec, self.name)
+        message = build_message(spec)
+        try:
+            job_id = await deferrer.defer_async(message=message)
+            execution = self._execution_from(spec, job_id)
+        except Exception as exc:
+            error = SubmissionError(
+                f"procrastinate could not defer {spec.task!r} on queue {spec.queue!r}: {exc}",
+                backend=self._name,
+            )
+            self.hooks.on_submit_error(spec, self.name, error)
+            raise error from exc
+        self.hooks.after_submit(spec, execution)
+        return execution
 
     # -- observation ---------------------------------------------------------------- #
     def _get(self, execution_id: ExecutionId) -> Execution:

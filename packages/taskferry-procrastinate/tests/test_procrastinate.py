@@ -71,6 +71,10 @@ class FakeDeferrer:
         self._app.job_manager.jobs[job_id] = FakeJob(job_id, queue=self._kwargs.get("queue", "d"))
         return job_id
 
+    async def defer_async(self, **payload: Any) -> int:
+        self._app.async_defers += 1
+        return self.defer(**payload)
+
 
 class FakeApp:
     """The whole Procrastinate surface this adapter touches. Deliberately small."""
@@ -81,6 +85,7 @@ class FakeApp:
         self.next_id = 4711
         self.fail_on_defer = fail_on_defer
         self.registered: dict[str, Any] = {}
+        self.async_defers = 0
 
     def configure_task(self, **kwargs: Any) -> FakeDeferrer:
         return FakeDeferrer(self, kwargs)
@@ -369,3 +374,44 @@ class TestWorker:
         message = build_message(TaskSpec(task="tests:observe", correlation=correlation))
         execute_message(message, registry=registry)
         assert seen == [correlation.correlation_id]
+
+
+# --------------------------------------------------------------------------- #
+# Native async (defer_async)
+# --------------------------------------------------------------------------- #
+class _SyncOnlyDeferrer:
+    def __init__(self, app: FakeApp, kwargs: dict[str, Any]) -> None:
+        self._inner = FakeDeferrer(app, kwargs)
+
+    def defer(self, **payload: Any) -> int:
+        return self._inner.defer(**payload)  # no defer_async -> forces the fallback
+
+
+class SyncOnlyApp(FakeApp):
+    def configure_task(self, **kwargs: Any) -> _SyncOnlyDeferrer:
+        return _SyncOnlyDeferrer(self, kwargs)
+
+
+class TestProcrastinateNativeAsync:
+    """`asubmit` defers through `defer_async`, skipping the worker thread."""
+
+    async def test_asubmit_uses_defer_async(self) -> None:
+        app = FakeApp()
+        backend = ProcrastinateTaskBackend(app=app)
+        execution = await backend.asubmit(TaskSpec(task="myapp:reindex", args=(1,)))
+        assert execution.state is ExecutionState.QUEUED
+        assert app.async_defers == 1
+        assert len(app.deferred) == 1
+
+    async def test_asubmit_wraps_defer_errors_as_submission_error(self) -> None:
+        backend = ProcrastinateTaskBackend(app=FakeApp(fail_on_defer=True))
+        with pytest.raises(SubmissionError):
+            await backend.asubmit(TaskSpec(task="myapp:reindex"))
+
+    async def test_asubmit_falls_back_when_defer_async_is_absent(self) -> None:
+        app = SyncOnlyApp()
+        backend = ProcrastinateTaskBackend(app=app)
+        execution = await backend.asubmit(TaskSpec(task="myapp:reindex"))
+        assert execution.state is ExecutionState.QUEUED
+        assert app.async_defers == 0  # took the sync/thread path
+        assert len(app.deferred) == 1

@@ -4,6 +4,16 @@ All notable changes to `taskferry-cloudrun` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-09-19
+
+### Added
+
+- **Native async** submit, state and cancel via the run_v2 async clients
+  (`JobsAsyncClient`, `ExecutionsAsyncClient`). `asubmit`/`aget`/`acancel` use
+  them when available, skipping the worker thread, and fall back to the thread
+  path when the SDK is absent. No new dependency — the async clients ship with
+  `google-cloud-run`.
+
 ## [0.3.0] — 2026-09-19
 
 ### Added

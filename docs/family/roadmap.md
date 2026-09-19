@@ -49,12 +49,21 @@ the async surface (`AsyncTaskferry`). Zero dependencies, enforced three ways.
 
 Ordered by how much each would teach us about whether the abstraction holds.
 
-1. **Natively async adapters.** Every backend has a working async path derived
-   with `asyncio.to_thread`. An adapter built on `aiobotocore` or an async
-   Procrastinate connector could skip the thread entirely — a performance
-   refinement, not a correctness one.
+1. **A native async events surface.** The task and job backends now have native
+   async paths (below); the events publisher does not — `publish`/`publish_batch`
+   are sync-only, so there is no `apublish` to override. Adding one is a port
+   change (a new public method, a contract test, a `to_thread` default on
+   `BaseEventPublisher`) rather than an adapter optimisation, so it is called out
+   separately rather than folded into the async work already shipped.
 
 Recently shipped from this list:
+
+- **Natively async task and job adapters.** `taskferry-sqs` (aiobotocore),
+  `taskferry-cloudtasks`, `taskferry-servicebus`, `taskferry-procrastinate` and
+  `taskferry-cloudrun` now override the `a`-prefixed methods with their provider's
+  async client, skipping the worker thread. Each falls back to the
+  `asyncio.to_thread` path when the async SDK is absent, so correctness never
+  depends on the native path (ADR-0015).
 
 - **Streaming logs for the *cloud* job backends.** Kubernetes (`CoreV1Api`),
   AWS Batch (CloudWatch) and Cloud Run (Cloud Logging) now implement

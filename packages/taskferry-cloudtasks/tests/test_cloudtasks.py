@@ -313,3 +313,53 @@ class TestEnginePortability:
         assert Capability.STATE not in push.capabilities
         assert Capability.PRIORITY in pg.capabilities
         assert Capability.PRIORITY not in push.capabilities
+
+
+# --------------------------------------------------------------------------- #
+# Native async (CloudTasksAsyncClient)
+# --------------------------------------------------------------------------- #
+class FakeAsyncTasksClient:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.created: list[dict[str, Any]] = []
+        self.fail = fail
+
+    async def create_task(self, *, request: dict[str, Any]) -> SimpleNamespace:
+        if self.fail:
+            raise RuntimeError("RESOURCE_EXHAUSTED: queue is full")
+        self.created.append(request)
+        return SimpleNamespace(name=f"{request['parent']}/tasks/{len(self.created)}")
+
+
+class TestCloudTasksNativeAsync:
+    """`asubmit` creates the task through the async client, skipping the thread."""
+
+    async def test_asubmit_uses_the_injected_async_client(self) -> None:
+        async_client = FakeAsyncTasksClient()
+        backend = make_backend(async_client=async_client)
+        execution = await backend.asubmit(TaskSpec(task="myapp:send", args=(1,)))
+        assert execution.state is ExecutionState.QUEUED
+        assert len(async_client.created) == 1
+        parent = async_client.created[0]["parent"]
+        assert parent == "projects/my-project/locations/europe-west1/queues/default"
+
+    async def test_asubmit_carries_the_envelope_body(self) -> None:
+        async_client = FakeAsyncTasksClient()
+        backend = make_backend(async_client=async_client)
+        await backend.asubmit(TaskSpec(task="myapp:send", args=(1,)))
+        body = json.loads(async_client.created[0]["task"]["http_request"]["body"])
+        assert body["task"] == "myapp:send"
+
+    async def test_asubmit_wraps_client_errors_as_submission_error(self) -> None:
+        backend = make_backend(async_client=FakeAsyncTasksClient(fail=True))
+        with pytest.raises(SubmissionError):
+            await backend.asubmit(TaskSpec(task="myapp:send"))
+
+    async def test_asubmit_falls_back_to_the_thread_path_without_the_sdk(self) -> None:
+        from taskferry_cloudtasks.backend import _has_cloud_tasks
+
+        if _has_cloud_tasks():  # pragma: no cover - env dependent
+            pytest.skip("google-cloud-tasks installed; native path exercised elsewhere")
+        sync = FakeTasksClient()
+        execution = await make_backend(client=sync).asubmit(TaskSpec(task="myapp:send"))
+        assert execution.state is ExecutionState.QUEUED
+        assert len(sync.created) == 1
