@@ -2,7 +2,6 @@
 
 - Status: Accepted
 - Date: 2026-07-26
-- History: absorbs former ADR-0005 (the first capability model)
 
 ## Context
 
@@ -11,9 +10,8 @@ report its state; Cloud Tasks can do neither. AWS Batch allocates GPUs per
 submission; Cloud Run cannot. A portability layer has three options: expose the
 lowest common denominator, silently emulate what is missing, or be honest.
 
-0.1 chose honesty but expressed it per-domain: `JobCapability.CANCEL`,
-`TaskCapability.CANCELLATION` and `ScheduleCapability.PAUSE` were unrelated types,
-so a router or a CLI could not ask "can this backend cancel?" across kinds.
+Taskferry needs one vocabulary that lets a router, a CLI, or an application ask
+whether a backend supports an operation across execution kinds.
 
 ## Decision
 

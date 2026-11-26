@@ -12,8 +12,6 @@ drains it, then reservation so two workers do not collide, then heartbeats so a
 dead worker's jobs are recovered. Eighteen months later the "thin layer" is a
 worse Celery that nobody chose.
 
-The 0.1 roadmap already contained several of these steps.
-
 ## Decision
 
 Taskferry will **never** implement, inside any of its distributions:

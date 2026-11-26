@@ -6,10 +6,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.2.0] — 2026-07-26
 
-### Changed
+### Added
 
-- **BREAKING**: `taskferry.scheduler` is now `taskferry_scheduler`.
-
-Contracts, adapters and the registry are otherwise unchanged. Only the import
-path moved, so that `taskferry` could ship a public API. See
-[ADR-0013](../../docs/adr/0013-packaging-strategy.md).
+- Schedule model, scheduler contract, local scheduler, and provider adapters for
+  Cloud Scheduler, EventBridge, and Kubernetes CronJobs.

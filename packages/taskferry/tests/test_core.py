@@ -1,4 +1,4 @@
-"""Tests for taskferry-core. Targets the >=90% coverage bar for core (section 38)."""
+"""Tests for the shared Taskferry core."""
 
 from __future__ import annotations
 

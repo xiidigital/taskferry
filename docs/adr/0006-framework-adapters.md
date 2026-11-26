@@ -5,9 +5,9 @@
 
 ## Context
 
-Taskferry's original home was a Django project, and 0.1 reflected that: the task
-backends *were* Django Tasks backends. Any other framework, or none, was a
-second-class citizen that could not use the most important primitive at all.
+Applications use Taskferry from Python with or without a web framework. Framework
+integrations belong at the boundary, where they can translate framework APIs to
+the portable runtime without adding framework dependencies to the core.
 
 ## Decision
 
@@ -47,12 +47,12 @@ worker's import allowlist needs exactly one module, and keeps Django's own
 
 ## Alternatives considered
 
-**Let `taskferry` special-case Django Task objects when resolving a function.** One
-`isinstance` check, and the layer would import Django. Rejected outright: this is
-the coupling the whole redesign exists to remove.
+**Let `taskferry` special-case Django Task objects when resolving a function.**
+One `isinstance` check would make the core import Django and couple function
+resolution to a framework. Rejected.
 
-**Ship a `@taskferry.task` decorator for Django users.** Rejected — a second task
-API in a framework that has one is a migration burden with no benefit.
+**Ship a `@taskferry.task` decorator for Django users.** Rejected — Django already
+provides a task API, and a second one would duplicate its role.
 
 **Have `taskferry` read a config file itself, so Django needs no adapter.** Then
 Taskferry owns a file format and a discovery order, and Django users configure

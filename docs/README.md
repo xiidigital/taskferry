@@ -8,13 +8,12 @@ for the tour. This directory holds the detail.
 
 ## Architecture
 
-- [The 2026 refactor](architecture/refactor-2026.md) — the current design, the
-  problems it solves, and how the migration was executed.
+- [Concepts and design](architecture/overview.md) — execution kinds, runtime,
+  routing, capabilities, adapter boundaries, and delivery semantics.
 - [Async, threads and processes](concurrency.md) — what happens to an `async def`,
   which objects are shareable, and what crosses a process boundary.
 - [Security](security.md) — function resolution, import allowlists, push endpoint
   authentication, subprocess isolation, payload contents.
-- [Migration 0.1 → 0.2](migration/0.1-to-0.2.md) — every renamed symbol.
 
 ## Engineering (how it is built)
 
@@ -33,9 +32,8 @@ at the repository root for setup.
 
 ## Decisions (ADRs)
 
-One consolidated, in-order sequence. Superseded 0.1 decisions were folded into the
-ADR that replaced them; the old numbers map forward in
-[the ADR index](adr/README.md).
+An in-order sequence of accepted decisions, with rationale, alternatives, and
+consequences.
 
 **Foundations**
 

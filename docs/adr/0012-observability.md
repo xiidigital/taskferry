@@ -5,14 +5,13 @@
 
 ## Context
 
-Observability must be designed in from the start, but forcing the OpenTelemetry
-SDK on every user (and its transitive dependencies) is unacceptable for a
-low-level library. We also do not want a separate `taskferry-otel` package yet
-(no objective reason to split it — section 18).
+Observability is available to every execution kind, but the OpenTelemetry SDK
+remains optional so applications that do not need tracing avoid installing it
+and its transitive dependencies.
 
 ## Decision
 
-- `taskferry-core` defines minimal `Tracer` and `Span` **protocols**, a
+- `taskferry` defines minimal `Tracer` and `Span` **protocols**, a
   `NoopTracer` default, and centralized **semantic span names**
   (`taskferry.task.enqueue`, `taskferry.job.submit`, `taskferry.event.publish`,
   `taskferry.schedule.create`, ...) and **attribute keys**

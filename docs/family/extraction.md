@@ -31,7 +31,7 @@ mkdir -p .github/workflows
 cp path/to/ci-templates/package-ci.yml .github/workflows/ci.yml
 
 # 5. Configure PyPI Trusted Publishing (OIDC) for the new repo, then tag.
-git tag taskferry-jobs-v0.1.0 && git push --tags
+git tag taskferry-jobs-vX.Y.Z && git push origin taskferry-jobs-vX.Y.Z
 ```
 
 ## What to verify after extraction

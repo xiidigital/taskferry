@@ -1,4 +1,4 @@
-"""``taskferry.core`` — the tiny shared substrate for the Taskferry family.
+"""``taskferry.core`` — the shared core for the Taskferry runtime.
 
 This package deliberately stays small (ADR-0004). It contains only what is
 *genuinely* transversal across Tasks, Jobs, Events and Schedules: identifiers,
@@ -9,9 +9,8 @@ the root error hierarchy.
 Domain types (``JobSpec``, ``Event``, ``Schedule`` ...) live in their own
 packages, not here — centralization is not a reason to promote a type.
 
-End users normally do not depend on ``taskferry-core`` directly; they install
-``taskferry-django`` / ``taskferry-jobs`` / ``taskferry-events`` /
-``taskferry-scheduler``, which depend on it.
+Framework and provider adapters depend on the ``taskferry`` distribution, which
+provides this core package.
 """
 
 from __future__ import annotations

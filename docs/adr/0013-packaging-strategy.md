@@ -2,18 +2,12 @@
 
 - Status: Accepted
 - Date: 2026-07-26
-- History: replaces the 0.1 PEP 420 namespace-package approach (former ADR-0003)
 
 ## Context
 
-0.1 used a PEP 420 namespace package: five distributions all contributing to
-`taskferry.*` (`taskferry.core`, `taskferry.jobs`, `taskferry.django`, ...). It gave a
-tidy import surface.
-
-It also made `from taskferry import Taskferry` **structurally impossible**. A PEP 420
-namespace package cannot contain an `__init__.py`, so no distribution could ship
-the public API. And editable installs of namespace-sharing distributions break in
-ways that are tedious to diagnose and depend on installer version.
+Taskferry has a public core API and independently versioned framework and provider
+integrations. Each distribution needs a clear import owner, installable on its own
+and testable without unrelated providers.
 
 ## Decision
 
@@ -39,8 +33,6 @@ flowchart BT
     TPS --> TP
 ```
 
-- `taskferry-core` is absorbed into `taskferry`. `taskferry.core` remains a valid
-  import path, now provided by the `taskferry` distribution.
 - `taskferry` declares **zero dependencies**, asserted by a test that reads the
   metadata as well as the source.
 - Provider SDKs live in extras (`taskferry-jobs[aws]`), never in required
@@ -50,10 +42,9 @@ flowchart BT
 
 ## Alternatives considered
 
-**Keep the namespace package and accept `taskferry.api` as the public surface.**
-Preserves the tidy imports at the cost of an awkward extra module and the editable
-install fragility. The brief explicitly requires `from taskferry import Taskferry`.
-Rejected.
+**Place the public API in a nested `taskferry.api` module.** Rejected because the
+curated API belongs at the package root and should be available from
+`from taskferry import Taskferry`.
 
 **One distribution with every adapter behind extras.** Simplest to release, and it
 means `pip install taskferry` has to at least *know about* every provider, the
@@ -67,10 +58,7 @@ between the two, with the disadvantages of both. Rejected.
 
 - `pip install taskferry` installs nothing else. This is the headline property, and
   it is tested three ways: source scan, runtime `sys.modules` check, and metadata.
-- Import paths from 0.1 break: `taskferry.jobs` → `taskferry_jobs`,
-  `taskferry.django` → `taskferry_django`. See
-  [the migration guide](../migration/0.1-to-0.2.md).
-- `taskferry_*` is slightly less elegant than `taskferry.*`. Accepted: a public API
-  that exists beats a namespace that reads nicely.
+- Each adapter uses its own top-level import package, such as `taskferry_django`
+  or `taskferry_cloudtasks`.
 - Each package remains independently buildable and extractable to its own
   repository, which [ADR-0014](0014-monorepo-to-multirepo.md) still describes.

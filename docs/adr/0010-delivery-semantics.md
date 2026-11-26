@@ -2,8 +2,6 @@
 
 - Status: Accepted
 - Date: 2026-07-24
-- History: absorbs former ADR-0018 (no exactly-once). Payload/serialization rules
-  moved to [ADR-0009](0009-serialization.md).
 
 ## Context
 

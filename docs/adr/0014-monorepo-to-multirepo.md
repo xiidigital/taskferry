@@ -1,28 +1,28 @@
-# ADR-0014: Monorepo now, clean multi-repo extraction later
+# ADR-0014: Workspace with independently releasable packages
 
 - Status: Accepted
 - Date: 2026-07-24
 
 ## Context
 
-Developing the family together speeds up cross-cutting design, but each package
-must be releasable independently and, eventually, extractable to its own
-repository without a redesign.
+The packages share a workspace for development while remaining independently
+buildable, versioned, and releasable. Package boundaries also allow a distribution
+to move to its own repository when that becomes useful.
 
 ## Decision
 
-Develop in a **uv workspace** monorepo under `packages/*`. Enforce these rules so
-extraction stays a mechanical move, not a rewrite:
+Develop in a **uv workspace** monorepo under `packages/*`. Enforce these rules to
+keep the packages independently buildable:
 
 1. **Self-contained packages.** Each package has its own `pyproject.toml`,
    `README.md`, `CHANGELOG.md`, `LICENSE`, `src/` and `tests/`.
-2. **No monorepo-relative imports.** Packages import each other only through
-   published distribution names (`taskferry-core`), never via relative paths that
-   assume the monorepo layout. In the workspace this is wired with
-   `[tool.uv.sources] taskferry-core = { workspace = true }`; outside it, the same
+2. **No monorepo-relative imports.** Packages import each other through published
+   distribution names (`taskferry`), never via relative paths that assume the
+   workspace layout. In the workspace this is wired with
+   `[tool.uv.sources] taskferry = { workspace = true }`; outside it, the same
    import resolves from PyPI.
 3. **Independent versioning (SemVer, no lockstep).** Each package versions on its
-   own; inter-package deps use compatible ranges (`taskferry-core>=0.1,<0.2`),
+   own; inter-package dependencies use compatible ranges (`taskferry>=0.2,<0.3`),
    not `==` pins.
 4. **Portable CI.** GitHub Actions workflows are per-package and copy cleanly to
    a standalone repo (see `.github/workflows/`).

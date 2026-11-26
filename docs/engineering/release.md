@@ -8,7 +8,7 @@ Each distribution versions and releases **independently** — SemVer, no lockste
 - **SemVer per distribution.** Bump the version in that package's `pyproject.toml`.
 - Inter-package ranges stay compatible, not pinned: `taskferry>=0.2,<0.3`.
 - Every release updates that package's `CHANGELOG.md` (Keep a Changelog style);
-  mark breaking changes **BREAKING** with a migration note.
+  mark breaking changes **BREAKING** and include an upgrade note when needed.
 
 ## Build
 
@@ -35,7 +35,7 @@ per-package tag action. The tag is `<distribution>-v<version>`:
 
 ```bash
 git tag taskferry-v0.2.0        && git push origin taskferry-v0.2.0        # publishes taskferry
-git tag taskferry-celery-v0.1.0 && git push origin taskferry-celery-v0.1.0 # publishes taskferry-celery
+git tag taskferry-celery-vX.Y.Z && git push origin taskferry-celery-vX.Y.Z # publishes taskferry-celery
 ```
 
 The workflow derives the package from the tag, runs `uv build --package <dist>`,
