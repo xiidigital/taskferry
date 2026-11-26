@@ -2,7 +2,6 @@
 
 - Status: Accepted
 - Date: 2026-07-26
-- History: absorbs former ADR-0002 (separating Task/Job/Event/Schedule)
 
 ## Context
 

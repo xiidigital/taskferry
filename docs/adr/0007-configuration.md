@@ -2,7 +2,6 @@
 
 - Status: Accepted
 - Date: 2026-07-26
-- History: absorbs former ADR-0006 (configuration flows in, not out)
 
 ## Context
 

@@ -16,5 +16,5 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Initial release, extracted from the Django-coupled backends of `taskferry-django` 0.1
-  and rebuilt against the framework-agnostic Taskferry ports.
+- Initial release of the Procrastinate task backend, implementing Taskferry's
+  framework-independent `TaskBackend` contract.

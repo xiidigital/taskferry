@@ -78,7 +78,7 @@ taskferry doctor
 
 ## Documentation
 
-Full documentation, ADRs and the migration guide live in the
+The architecture guide and ADRs live in the
 [repository](https://github.com/xiidigital/taskferry).
 
 ## License

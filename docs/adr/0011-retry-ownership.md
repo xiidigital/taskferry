@@ -23,8 +23,9 @@ Three attempts at each of four layers is ninety attempts, and the failure mode i
 a retry storm against a service that was already struggling. Every layer's
 configuration looks reasonable in isolation.
 
-In 0.1, `JobSpec.max_retries` was an untyped int forwarded to whichever provider
-happened to read it, with no statement anywhere about who acts on it.
+Retry settings must describe both the requested policy and the layer that will
+apply it. The owner is explicit so callers can reason about the total number of
+attempts.
 
 ## Decision
 

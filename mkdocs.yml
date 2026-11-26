@@ -42,12 +42,9 @@ markdown_extensions:
 nav:
   - Home: README.md
   - Architecture:
-      - Overview: architecture/overview.md
-      - The 2026 refactor: architecture/refactor-2026.md
+      - Concepts and design: architecture/overview.md
       - Async, threads and processes: concurrency.md
       - Security: security.md
-  - Migration:
-      - 0.1 to 0.2: migration/0.1-to-0.2.md
   - Engineering:
       - Coding standards: engineering/coding-standards.md
       - Testing: engineering/testing.md
@@ -55,7 +52,7 @@ nav:
       - Release process: engineering/release.md
       - CI: engineering/ci.md
   - Decisions (ADRs):
-      - Index & history: adr/README.md
+      - Index: adr/README.md
       - Foundations:
           - 0001 · Portable execution layer: adr/0001-portable-execution-layer.md
           - 0002 · Not a task queue: adr/0002-not-a-task-queue.md

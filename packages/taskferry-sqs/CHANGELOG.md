@@ -18,6 +18,5 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Initial release. Ported from the Django-coupled backend of `taskferry-django` 0.1
-  onto the framework-agnostic `TaskBackend` port, with a contract-tested
-  capability set and a consumer/worker side that needs no Django.
+- Initial release of the Amazon SQS task backend, implementing Taskferry's
+  framework-independent `TaskBackend` contract with consumer and worker support.

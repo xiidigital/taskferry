@@ -1,4 +1,4 @@
-# ADR-0004: `taskferry-core` stays intentionally tiny
+# ADR-0004: Keep the shared core small
 
 - Status: Accepted
 - Date: 2026-07-24
@@ -10,7 +10,7 @@ god-dependency that every other package (and their transitive users) must carry.
 
 ## Decision
 
-`taskferry-core` contains **only genuinely transversal** concerns and has **zero
+`taskferry` contains **only genuinely transversal** concerns and has **zero
 runtime dependencies**. It never imports Django, a cloud SDK, Redis, a broker, or
 Kubernetes.
 

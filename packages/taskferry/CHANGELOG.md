@@ -6,26 +6,23 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.2.0] — 2026-07-26
 
-The distribution formerly published as `taskferry-core`, reframed as the portable
-execution layer itself. See [ADR-0001](../../docs/adr/0001-portable-execution-layer.md)
-and the [migration guide](../../docs/migration/0.1-to-0.2.md).
+This release defines the portable Taskferry execution runtime. See
+[ADR-0001](../../docs/adr/0001-portable-execution-layer.md) for its design.
 
 ### Added
 
 - **A public API.** `from taskferry import Taskferry, TaskSpec, JobSpec, Execution,
-  ExecutionHandle` now works; `taskferry` is a regular package with a curated
+  ExecutionHandle` is available from a regular package with a curated
   `__all__`.
 - **Three execution primitives** — `InlineSpec`, `TaskSpec`, `JobSpec` — modelled
-  framework-agnostically for the first time. Tasks previously existed only inside
-  Django.
+  independently of any framework.
 - **`Taskferry` runtime** with `inline` / `tasks` / `jobs` facades, lazy backend
   construction, a bounded execution index and context-manager lifecycle.
 - **`Router`** with ordered, glob-capable rules on kind, queue, profile, name and
   labels; first match wins, and an unroutable spec names every rule it tried.
 - **`Execution`, `ExecutionState`, `ExecutionHandle`** — one portable identity and
   one documented state machine shared by every backend of every kind.
-- **A single `Capability` enum** shared across kinds, replacing the per-domain
-  enums that could not be compared.
+- **A single `Capability` enum** shared across execution kinds.
 - **`RetryPolicy` / `TimeoutPolicy`** with explicit `RetryOwner`, so exactly one
   layer retries. See [ADR-0011](../../docs/adr/0011-retry-ownership.md).
 - **`FunctionRef` / `FunctionRegistry`** — the portable
@@ -48,8 +45,7 @@ and the [migration guide](../../docs/migration/0.1-to-0.2.md).
 
 ### Changed
 
-- `taskferry-core` is absorbed into `taskferry`. `taskferry.core` remains a valid
-  import path.
+- The `taskferry` distribution includes the `taskferry.core` module.
 - `QUEUED → SUCCEEDED` is a legal transition: a worker that finishes before the
   first poll is normal, not a broken adapter.
 
@@ -58,7 +54,3 @@ and the [migration guide](../../docs/migration/0.1-to-0.2.md).
 - `UnsupportedCapability` is now an alias of `UnsupportedCapabilityError` rather
   than a subclass. As a subclass, the documented `except UnsupportedCapability`
   missed everything raised by `CapabilitySet.require()`.
-
-### Removed
-
-- `taskferry-core` as a separate distribution. Depend on `taskferry`.
