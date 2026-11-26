@@ -27,11 +27,10 @@ Capabilities are advertised from what Celery genuinely does out of the box:
 * ``STATE`` — through ``AsyncResult``;
 * ``CANCEL`` — ``AsyncResult.revoke``.
 
-``RESULT`` is **not** advertised. Celery *can* store results, but only when a
-result backend is configured, and Taskferry will not claim a capability that
-depends on optional infrastructure it cannot see. ``DEDUPLICATION`` is not
-advertised either: Celery has no native mechanism for it, so a spec carrying an
-``idempotency_key`` is rejected here rather than accepted and ignored.
+``RESULT`` is advertised only when the configured Celery app has a result
+backend. ``DEDUPLICATION`` is not advertised: Celery has no native mechanism for
+it, so a spec carrying an ``idempotency_key`` is rejected rather than accepted
+and ignored.
 
 A note on Celery's ``PENDING``: Celery reports ``PENDING`` both for a task that is
 genuinely queued *and* for a task id it has never heard of. Taskferry maps
@@ -51,6 +50,7 @@ from taskferry.execution import (
     Execution,
     ExecutionId,
     ExecutionKind,
+    ExecutionResult,
     ExecutionState,
     new_execution_id,
 )
@@ -151,7 +151,23 @@ class CeleryTaskBackend(BaseBackend):
 
     @property
     def capabilities(self) -> CapabilitySet:
-        return CapabilitySet(CELERY_CAPABILITIES, provider=self._name)
+        capabilities = set(CELERY_CAPABILITIES)
+        if self._has_result_backend():
+            capabilities.add(Capability.RESULT)
+        return CapabilitySet(capabilities, provider=self._name)
+
+    def _has_result_backend(self) -> bool:
+        """Return whether this app has durable Celery result storage configured.
+
+        A broker (including Redis) does not imply a result backend. Celery's
+        disabled result backend silently discards return values, so RESULT is
+        advertised only when ``result_backend`` is set explicitly.
+        """
+        if self._app is None:
+            return False
+        app = self.app()
+        conf = getattr(app, "conf", None)
+        return bool(getattr(conf, "result_backend", None))
 
     # -- the app ---------------------------------------------------------------- #
     def app(self) -> Any:
@@ -233,6 +249,32 @@ class CeleryTaskBackend(BaseBackend):
             external_id=task_id,
             provider_metadata=ProviderMetadata(provider="celery", provider_id=task_id),
         )
+
+    def _result(
+        self, execution_id: ExecutionId, *, timeout: float | None
+    ) -> ExecutionResult:
+        """Read the value/error from Celery's configured result store."""
+        async_result = self._result_handle(execution_id)
+        try:
+            value = async_result.get(timeout=timeout, propagate=False)
+        except Exception as exc:
+            # Backend/network errors are not task failures; preserve them for the
+            # caller rather than turning them into a successful empty result.
+            raise SubmissionError(
+                f"celery could not read result for {execution_id!r}: {exc}",
+                backend=self._name,
+            ) from exc
+
+        state = map_state(getattr(async_result, "state", None))
+        if state is ExecutionState.FAILED:
+            return ExecutionResult(
+                error=str(value),
+                error_type=type(value).__qualname__,
+                traceback=getattr(async_result, "traceback", None),
+            )
+        if state is ExecutionState.CANCELLED:
+            return ExecutionResult.cancelled()
+        return ExecutionResult(value=value)
 
     def _cancel(self, execution_id: ExecutionId) -> Execution:
         async_result = self._result_handle(execution_id)
