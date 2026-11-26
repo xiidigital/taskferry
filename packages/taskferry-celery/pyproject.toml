@@ -25,6 +25,8 @@ dependencies = ["taskferry>=0.2,<0.3"]
 
 [project.optional-dependencies]
 celery = ["celery>=5.3"]
+redis = ["celery[redis]>=5.3"]
+rabbitmq = ["celery>=5.3"]
 
 [project.entry-points."taskferry.backends"]
 celery = "taskferry_celery:make_backend"

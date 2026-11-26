@@ -21,7 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Typing :: Typed",
 ]
-dependencies = ["taskferry>=0.2,<0.3", "django>=5.1"]
+dependencies = ["taskferry>=0.2,<0.3", "django>=6.0"]
 
 [project.urls]
 Homepage = "https://github.com/xiidigital/taskferry"

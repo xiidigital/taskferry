@@ -32,7 +32,6 @@ from django.tasks.backends.base import BaseTaskBackend
 from django.tasks.base import Task, TaskResult, TaskResultStatus
 
 from taskferry import CapabilitySet, ExecutionState, Taskferry, TaskSpec
-from taskferry.errors import TaskferryError
 
 from .config import get_runtime
 from .execute import DISPATCH_REF
@@ -75,8 +74,11 @@ class TaskferryBackend(BaseTaskBackend):
     #: permissively and the real, per-backend answer is enforced at submit time
     #: by the capability check, which raises rather than silently degrading.
     supports_defer = True
-    supports_async_task = True
-    supports_get_result = True
+    # The dispatcher invokes Task.call() synchronously and the portable runtime
+    # has no durable Django TaskResult store. Do not advertise features we cannot
+    # guarantee across workers or process restarts.
+    supports_async_task = False
+    supports_get_result = False
     supports_priority = True
 
     def __init__(self, alias: str, params: dict[str, Any]) -> None:
@@ -178,17 +180,16 @@ class TaskferryBackend(BaseTaskBackend):
         )
 
     def get_result(self, result_id: str) -> TaskResult:
-        """Look up a previously enqueued task.
+        """Django result lookup is not backed by durable task metadata here.
 
-        Raises:
-            TaskferryError: when the routed backend cannot report state. Django's
-                API implies every backend can look a result up; most real queues
-                cannot, and this says so instead of returning a fabricated one.
+        Django Tasks requires a stored ``TaskResult`` including its original Task
+        object, arguments, attempts, and errors. The portable execution backends
+        do not persist that Django-specific record, so pretending a Taskferry
+        execution lookup is equivalent would return incomplete or fabricated data.
         """
-        raise TaskferryError(
-            "get_result() is not supported through the Taskferry bridge: use "
-            "runtime.get(execution_id) directly, where the backend's capabilities "
-            "are visible and an unsupported lookup fails honestly"
+        raise NotImplementedError(
+            f"Taskferry does not persist Django TaskResult records (id={result_id!r}); "
+            "use the Taskferry runtime and its configured backend capabilities"
         )
 
 

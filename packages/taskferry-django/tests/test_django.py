@@ -157,12 +157,12 @@ class TestTaskferryBackend:
         assert Capability.CANCEL in capabilities  # the thread pool can cancel
         assert Capability.PRIORITY not in capabilities  # ...but is FIFO
 
-    def test_get_result_refuses_rather_than_fabricating(self) -> None:
-        """Django's API implies every backend can look a result up. Most cannot."""
-        from taskferry.errors import TaskferryError
-
+    def test_unsupported_django_features_are_not_advertised(self) -> None:
+        """The bridge has no async dispatcher or durable Django TaskResult store."""
         backend = TaskferryBackend("default", {})
-        with pytest.raises(TaskferryError, match=r"runtime\.get"):
+        assert backend.supports_async_task is False
+        assert backend.supports_get_result is False
+        with pytest.raises(NotImplementedError, match="does not persist"):
             backend.get_result("task_whatever")
 
     def test_the_state_mapping_covers_every_portable_state(self) -> None:

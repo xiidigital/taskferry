@@ -9,9 +9,10 @@ worker) is a **first-class** requirement, not an afterthought (section 44).
 Django ─▶ PostgreSQL ─▶ worker (management command)
 ```
 
-Backend: Django's built-in `DatabaseBackend` + `db_worker`, or `taskferry-django`
-with a Procrastinate-backed backend for a more capable PostgreSQL queue. One
-long-running worker process. Simplest to operate.
+Backend: Django's built-in `ImmediateBackend` and `DummyBackend` are for local
+execution/testing only; Django 6 does not ship a production `DatabaseBackend` or
+worker. For durable PostgreSQL-backed execution, use the optional
+`taskferry-procrastinate` adapter, which requires its worker process.
 
 ## Redis
 
@@ -19,9 +20,10 @@ long-running worker process. Simplest to operate.
 Django ─▶ Redis ─▶ worker
 ```
 
-Backend: a `taskferry-django` adapter over a maintained Redis task library
-(Dramatiq is the reference integration; Celery/Taskiq are alternatives). One or
-more worker processes.
+Backend: the optional `taskferry-celery[redis]` adapter and a Celery app configured
+with Redis as broker and/or result backend. Redis can be omitted or replaced by
+other Celery-supported storage. Run one or more Celery workers. The separate
+`taskferry-dramatiq` adapter is another option.
 
 ## GCP serverless (scale-to-zero, push)
 

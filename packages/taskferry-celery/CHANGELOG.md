@@ -3,6 +3,20 @@
 Follows [Semantic Versioning](https://semver.org/); versions independently of the
 rest of the family.
 
+## Unreleased
+
+### Changed
+
+- Advertise `RESULT` only when the configured Celery app has a result backend,
+  and read successful values and failures from that backend.
+
+### Added
+
+- A `redis` extra for deployments that choose Redis as Celery broker or result
+  backend. Celery and Redis remain optional dependencies.
+- A `rabbitmq` convenience extra; RabbitMQ uses Celery's built-in AMQP transport
+  and does not add a separate provider dependency.
+
 ## [0.1.0]
 
 ### Added
