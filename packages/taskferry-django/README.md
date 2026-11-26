@@ -46,8 +46,10 @@ TASKFERRY = {
     "backends": {
         "celery": {"factory": "celery", "app": "myproject.celery:app"},
         "gcp": {
-            "factory": "cloudtasks", "project": "my-project",
-            "location": "us-central1", "url": "https://example.run.app/_taskferry/execute",
+            "factory": "cloudtasks",
+            "project": "my-project",
+            "location": "us-central1",
+            "url": "https://example.run.app/_taskferry/execute",
         },
     },
     "routes": [

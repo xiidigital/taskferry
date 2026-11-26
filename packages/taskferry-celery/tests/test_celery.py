@@ -27,9 +27,7 @@ from taskferry_celery.worker import execute_message
 # Fakes
 # --------------------------------------------------------------------------- #
 class FakeAsyncResult:
-    def __init__(
-        self, task_id: str, state: str = "PENDING", value: Any = None
-    ) -> None:
+    def __init__(self, task_id: str, state: str = "PENDING", value: Any = None) -> None:
         self.id = task_id
         self.state = state
         self.revoked = False
