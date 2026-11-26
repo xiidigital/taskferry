@@ -4,6 +4,16 @@ All notable changes to `taskferry-django` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+
+- Require Django 6.0+, matching the native `django.tasks` imports. The package
+  does not target the third-party backport on Django 5.x.
+- Report that Django `TaskResult` retrieval is unsupported because the bridge
+  does not persist Django-specific result records. This corrects the previously
+  advertised `supports_get_result` flag.
+
 ## [0.2.0] — 2026-07-26
 
 ### Changed

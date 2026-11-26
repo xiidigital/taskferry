@@ -28,7 +28,10 @@ are stored anywhere.**
 ### In this monorepo
 
 `.github/workflows/release.yml` publishes **one** distribution when a per-package
-tag is pushed. The tag is `<distribution>-v<version>`:
+tag is pushed. The tag must point to a commit already merged into `main`; the
+workflow rejects tags on feature branches or commits that have not reached `main`.
+Merging a PR by itself does not publish a package: release remains an explicit,
+per-package tag action. The tag is `<distribution>-v<version>`:
 
 ```bash
 git tag taskferry-v0.2.0        && git push origin taskferry-v0.2.0        # publishes taskferry

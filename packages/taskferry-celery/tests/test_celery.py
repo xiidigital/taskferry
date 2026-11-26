@@ -8,6 +8,7 @@ be tested. The fake implements only the narrow surface the adapter touches.
 from __future__ import annotations
 
 from datetime import timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -26,10 +27,15 @@ from taskferry_celery.worker import execute_message
 # Fakes
 # --------------------------------------------------------------------------- #
 class FakeAsyncResult:
-    def __init__(self, task_id: str, state: str = "PENDING") -> None:
+    def __init__(self, task_id: str, state: str = "PENDING", value: Any = None) -> None:
         self.id = task_id
         self.state = state
         self.revoked = False
+        self.value = value
+        self.traceback = None
+
+    def get(self, *, timeout: float | None = None, propagate: bool = True) -> Any:
+        return self.value
 
     def revoke(self) -> None:
         self.revoked = True
@@ -39,11 +45,12 @@ class FakeAsyncResult:
 class FakeCelery:
     """The whole Celery surface this adapter touches. Deliberately small."""
 
-    def __init__(self, *, fail_on_send: bool = False) -> None:
+    def __init__(self, *, fail_on_send: bool = False, result_backend: str = "") -> None:
         self.sent: list[dict[str, Any]] = []
         self.results: dict[str, FakeAsyncResult] = {}
         self.registered: dict[str, Any] = {}
         self.fail_on_send = fail_on_send
+        self.conf = SimpleNamespace(result_backend=result_backend)
         self._n = 4711
 
     def send_task(
@@ -209,6 +216,33 @@ class TestCapabilities:
             Capability.CANCEL,
         ):
             assert capability in backend.capabilities
+
+    def test_result_is_advertised_only_when_a_result_backend_is_configured(self) -> None:
+        with_results = CeleryTaskBackend(app=FakeCelery(result_backend="redis://localhost/1"))
+        without_results = CeleryTaskBackend(app=FakeCelery())
+
+        assert Capability.RESULT in with_results.capabilities
+        assert Capability.RESULT not in without_results.capabilities
+
+    def test_a_configured_result_backend_returns_the_task_value(self) -> None:
+        app = FakeCelery(result_backend="redis://localhost/1")
+        backend = CeleryTaskBackend(app=app)
+        execution = backend.submit(TaskSpec(task="m:f"))
+        app.results[execution.external_id].state = "SUCCESS"
+        app.results[execution.external_id].value = {"processed": 3}
+
+        assert backend.result(execution.id).value == {"processed": 3}
+
+    def test_a_configured_result_backend_preserves_task_failures(self) -> None:
+        app = FakeCelery(result_backend="redis://localhost/1")
+        backend = CeleryTaskBackend(app=app)
+        execution = backend.submit(TaskSpec(task="m:f"))
+        app.results[execution.external_id].state = "FAILURE"
+        app.results[execution.external_id].value = RuntimeError("broken")
+
+        outcome = backend.result(execution.id)
+        assert outcome.error == "broken"
+        assert outcome.error_type == "RuntimeError"
 
     def test_cancel_revokes_the_task(self, backend: CeleryTaskBackend, app: FakeCelery) -> None:
         execution = backend.submit(TaskSpec(task="m:f"))

@@ -11,7 +11,9 @@ flowchart BT
     DJ --> TPD --> TP
 ```
 
-Taskferry does **not** invent a parallel task API — Django 6 already has one. This
+This package supports **Django 6.0+ native `django.tasks`**. Django introduced
+that API in 6.0; this package imports it directly and does not integrate the
+third-party `django-tasks` backport. Taskferry does **not** invent a parallel API. This
 package supplies a backend for the standard `TASKS` setting, so your `@task` code
 never changes while the engine behind it becomes a configuration choice.
 
@@ -42,19 +44,67 @@ TASKS = {"default": {"BACKEND": "taskferry_django.TaskferryBackend"}}
 
 TASKFERRY = {
     "backends": {
-        "pg": {"factory": "procrastinate", "app": "myapp.tasks:app"},
-        "heavy": {"factory": "cloudrun", "project": "p", "location": "europe-west1"},
+        "celery": {"factory": "celery", "app": "myproject.celery:app"},
+        "gcp": {
+            "factory": "cloudtasks",
+            "project": "my-project",
+            "location": "us-central1",
+            "url": "https://example.run.app/_taskferry/execute",
+        },
     },
     "routes": [
-        {"kind": "task", "queue": "metadata", "backend": "pg"},
-        {"kind": "job", "profile": "heavy", "backend": "heavy"},
+        {"kind": "task", "queue": "local-workers", "backend": "celery"},
+        {"kind": "task", "queue": "serverless", "backend": "gcp"},
     ],
-    "defaults": {"task": "pg", "job": "heavy"},
+    "defaults": {"task": "celery"},
 }
 ```
 
+For Celery, configure broker/result storage on `myproject.celery:app` itself;
+the backend name in Taskferry chooses the Celery execution adapter, while Celery
+chooses its broker and optional result store. Change the queue routes or default
+to move Django tasks between Celery and Cloud Tasks without changing task code.
+
 With no `TASKFERRY` setting at all, everything runs locally — a fresh project works
 immediately and is obviously not production.
+
+### Choosing execution and storage
+
+Choose an engine through `TASKFERRY.backends` and route queues with the usual
+`routes`/`defaults` configuration. Django's native Tasks API is the enqueue
+interface; it does not include a production queue or durable task store. Provider
+integrations are separate optional distributions:
+
+```bash
+pip install taskferry-django taskferry-celery[celery]
+# If Redis is your chosen Celery broker and/or result backend:
+pip install 'taskferry-celery[redis]'
+# If RabbitMQ is your chosen Celery broker:
+pip install 'taskferry-celery[rabbitmq]'
+# For GCP push delivery:
+pip install taskferry-django 'taskferry-cloudtasks[gcp]'
+```
+
+Celery's broker and result backend are configured on the Celery app, independently
+of Taskferry routing. Redis is optional; Celery can use other supported brokers
+and result stores, or run without result storage. The `rabbitmq` extra is an
+installation alias; Celery includes its AMQP transport. RabbitMQ can also use
+Celery's transient `rpc://` result backend, or pair with a separate database
+result backend. The Taskferry Celery adapter
+advertises result retrieval only when `app.conf.result_backend` is configured.
+Cloud Tasks is a push queue: it cannot report execution state or persist return
+values, so persist progress and results in application-owned storage if required.
+
+Taskferry serializes task names and arguments as JSON; pass identifiers or other
+JSON-safe values, never ORM instances or pickled objects. Cloud Tasks provides
+time-bounded task-name deduplication when an idempotency key is supplied; Celery
+does not, so keyed submissions are rejected there. Cloud Tasks and Celery retry
+through their native engines according to the Taskferry retry policy. Delivery
+can be duplicated: make task handlers idempotent. Celery revoke is best effort
+and does not interrupt a running handler; Cloud Tasks does not expose cancellation.
+Taskferry has no portable progress reporting contract yet. Celery's persisted
+state can show queued/started/terminal state when configured, but richer progress
+belongs in application storage.
 
 ## What else you get
 
