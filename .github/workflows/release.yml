@@ -23,7 +23,19 @@ jobs:
       package: ${{ steps.parse.outputs.package }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Release tags are accepted only when their commit is reachable from
+          # main. Fetch history so a tag created on an unmerged feature branch
+          # cannot publish a distribution.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
+      - name: Require the tagged commit to be merged into main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "::error::Refusing to publish: tag commit is not in main history."
+            exit 1
+          fi
       - name: Derive the package name from the tag
         id: parse
         run: |

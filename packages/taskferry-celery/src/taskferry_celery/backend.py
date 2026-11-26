@@ -250,9 +250,7 @@ class CeleryTaskBackend(BaseBackend):
             provider_metadata=ProviderMetadata(provider="celery", provider_id=task_id),
         )
 
-    def _result(
-        self, execution_id: ExecutionId, *, timeout: float | None
-    ) -> ExecutionResult:
+    def _result(self, execution_id: ExecutionId, *, timeout: float | None) -> ExecutionResult:
         """Read the value/error from Celery's configured result store."""
         async_result = self._result_handle(execution_id)
         try:
