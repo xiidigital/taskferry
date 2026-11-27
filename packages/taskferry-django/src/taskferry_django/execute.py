@@ -43,10 +43,13 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-from django.tasks.base import Task
+from django.tasks.base import Task, TaskContext, TaskResultStatus
 
 from taskferry.core.typing import JSONValue
-from taskferry.errors import FunctionResolutionError
+from taskferry.errors import FunctionResolutionError, UnsupportedCapability
+from taskferry.execution_context import current_task_execution
+
+from .results import TaskferryTaskResult
 
 
 def resolve_django_task(module_path: str) -> Task:
@@ -92,7 +95,38 @@ def run_task(
         advertise ``RESULT`` surface it through the handle.
     """
     task = resolve_django_task(module_path)
-    return task.call(*(args or []), **(kwargs or {}))
+    call_args = args or []
+    call_kwargs = kwargs or {}
+    if not task.takes_context:
+        return task.call(*call_args, **call_kwargs)
+
+    current = current_task_execution()
+    if current is None or current.execution_id is None or current.attempt is None:
+        raise UnsupportedCapability(
+            "execution_context",
+            provider="the selected Taskferry backend did not supply an execution id and attempt",
+        )
+
+    from django.utils import timezone
+
+    started_at = current.started_at or timezone.now()
+    result = TaskferryTaskResult(
+        task=task,
+        id=str(current.execution_id),
+        status=TaskResultStatus.RUNNING,
+        enqueued_at=None,
+        started_at=started_at,
+        finished_at=None,
+        last_attempted_at=started_at,
+        args=list(call_args),
+        kwargs=dict(call_kwargs),
+        backend=task.backend,
+        errors=[],
+        worker_ids=[] if current.worker_id is None else [current.worker_id],
+        provider_id=None,
+        _current_attempt=current.attempt,
+    )
+    return task.call(TaskContext(task_result=result), *call_args, **call_kwargs)
 
 
 DISPATCH_REF = "taskferry_django.execute:run_task"

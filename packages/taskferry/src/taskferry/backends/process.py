@@ -157,7 +157,7 @@ class ProcessTaskBackend(BaseBackend):
         assert isinstance(spec, TaskSpec)
         pool = self._ensure_pool()
         execution = Execution(
-            id=new_execution_id(ExecutionKind.TASK),
+            id=spec.execution_id or new_execution_id(ExecutionKind.TASK),
             kind=ExecutionKind.TASK,
             backend=self.name,
             state=ExecutionState.QUEUED,

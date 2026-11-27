@@ -5,6 +5,11 @@ rest of the family.
 
 ## Unreleased
 
+### Added
+
+- Propagate Celery's current retry number and worker hostname into execution
+  context for adapters such as `taskferry-django`.
+
 ## [0.2.0] — 2026-11-26
 
 ### Changed

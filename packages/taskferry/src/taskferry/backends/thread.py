@@ -56,6 +56,7 @@ from ..execution import (
     ExecutionState,
     new_execution_id,
 )
+from ..execution_context import TaskExecutionContext, use_task_execution
 from ..functions import FunctionRegistry, is_async_callable
 from ..ports import BaseBackend
 from ..specs import ExecutionSpec, TaskSpec
@@ -69,6 +70,7 @@ THREAD_CAPABILITIES = frozenset(
         Capability.DELAY,
         Capability.RETRY,
         Capability.ASYNC_CALLABLE,
+        Capability.EXECUTION_CONTEXT,
     }
 )
 
@@ -139,7 +141,7 @@ class ThreadTaskBackend(BaseBackend):
             raise SubmissionError("this ThreadTaskBackend is closed", backend=self.name)
 
         execution = Execution(
-            id=new_execution_id(ExecutionKind.TASK),
+            id=spec.execution_id or new_execution_id(ExecutionKind.TASK),
             kind=ExecutionKind.TASK,
             backend=self.name,
             state=ExecutionState.QUEUED,
@@ -190,7 +192,17 @@ class ThreadTaskBackend(BaseBackend):
         )
         while True:
             try:
-                with bind:
+                with (
+                    bind,
+                    use_task_execution(
+                        TaskExecutionContext(
+                            execution_id=entry.execution.id,
+                            attempt=attempt,
+                            worker_id=threading.current_thread().name,
+                            started_at=datetime.now(UTC),
+                        )
+                    ),
+                ):
                     value = self._call(func, spec)
             except Exception as exc:
                 if spec.retry.should_retry(exc, attempt):

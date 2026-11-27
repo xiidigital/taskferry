@@ -31,10 +31,12 @@ from typing import Any
 from django.tasks.backends.base import BaseTaskBackend
 from django.tasks.base import Task, TaskResult, TaskResultStatus
 
-from taskferry import CapabilitySet, ExecutionState, Taskferry, TaskSpec
+from taskferry import Capability, CapabilitySet, ExecutionKind, ExecutionState, Taskferry, TaskSpec
+from taskferry.execution import new_execution_id
 
 from .config import get_runtime
 from .execute import DISPATCH_REF
+from .results import TaskferryTaskResult
 
 #: Portable state -> the Django Tasks status vocabulary. Django's enum is
 #: coarser than Taskferry's, so several states collapse; the mapping is written
@@ -127,6 +129,9 @@ class TaskferryBackend(BaseTaskBackend):
         """Translate a Django task into a spec and submit it."""
         self.validate_task(task)
         spec = self.build_spec(task, args, kwargs)
+        if task.takes_context:
+            name = self._pinned or self.runtime.router.resolve(spec)
+            self.runtime.capabilities(str(name)).require(Capability.EXECUTION_CONTEXT)
         handle = self.runtime.submit(spec, backend=self._pinned)
         return self._task_result(task, args, kwargs, handle.execution)
 
@@ -150,6 +155,7 @@ class TaskferryBackend(BaseTaskBackend):
             run_at=task.run_after,
             name=task.name,
             labels={"django_task": task.module_path},
+            execution_id=(new_execution_id(ExecutionKind.TASK) if task.takes_context else None),
         )
 
     def _task_result(
@@ -158,10 +164,10 @@ class TaskferryBackend(BaseTaskBackend):
         args: list[Any],
         kwargs: dict[str, Any],
         execution: Any,
-    ) -> TaskResult:
+    ) -> TaskferryTaskResult:
         from django.utils import timezone
 
-        return TaskResult(
+        return TaskferryTaskResult(
             task=task,
             # Django caps result ids at 64 characters; a Taskferry id is well
             # inside that, which is one reason ids are minted rather than
@@ -177,6 +183,7 @@ class TaskferryBackend(BaseTaskBackend):
             backend=self.alias,
             errors=[],
             worker_ids=[],
+            provider_id=execution.external_id,
         )
 
     def get_result(self, result_id: str) -> TaskResult:
@@ -193,4 +200,4 @@ class TaskferryBackend(BaseTaskBackend):
         )
 
 
-__all__ = ["TaskferryBackend"]
+__all__ = ["TaskferryBackend", "TaskferryTaskResult"]

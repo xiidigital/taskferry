@@ -111,6 +111,10 @@ class ExecutionBackend(Protocol):
         """Block until the execution is terminal. Requires ``Capability.STATE``."""
         ...
 
+    def attempt_count(self, execution_id: ExecutionId | str) -> int: ...
+
+    def delete_pending(self, execution_id: ExecutionId | str) -> None: ...
+
     # -- the async surface --------------------------------------------------- #
     # Every backend has one. :class:`BaseBackend` derives it from the sync
     # methods with ``asyncio.to_thread``, so an adapter gets a correct — never
@@ -210,6 +214,12 @@ class BaseBackend(ABC):
     ) -> ExecutionResult:  # pragma: no cover - overridden
         raise UnsupportedCapability(Capability.RESULT.value, provider=self.name)
 
+    def _attempt_count(self, execution_id: ExecutionId) -> int:
+        raise UnsupportedCapability(Capability.ATTEMPT_COUNT.value, provider=self.name)
+
+    def _delete_pending(self, execution_id: ExecutionId) -> None:
+        raise UnsupportedCapability(Capability.DELETE_PENDING.value, provider=self.name)
+
     def _wait(self, execution_id: ExecutionId, *, timeout: float | None) -> Execution:
         """Block until terminal. Default implementation polls ``_get``.
 
@@ -264,6 +274,14 @@ class BaseBackend(ABC):
         """
         self.capabilities.require(Capability.STATE)
         return self._wait(ExecutionId(str(execution_id)), timeout=timeout)
+
+    def attempt_count(self, execution_id: ExecutionId | str) -> int:
+        self.capabilities.require(Capability.ATTEMPT_COUNT)
+        return self._attempt_count(ExecutionId(str(execution_id)))
+
+    def delete_pending(self, execution_id: ExecutionId | str) -> None:
+        self.capabilities.require(Capability.DELETE_PENDING)
+        self._delete_pending(ExecutionId(str(execution_id)))
 
     # -- the async surface ---------------------------------------------------- #
     # Derived from the sync methods by default. ``asyncio.to_thread`` runs the

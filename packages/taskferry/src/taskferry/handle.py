@@ -182,5 +182,17 @@ class ExecutionHandle:
             self._execution = cancelled
         return cancelled
 
+    def attempt_count(self) -> int:
+        """Read provider dispatch attempts while its task record still exists."""
+        if not self._backend.capabilities.supports(Capability.ATTEMPT_COUNT):
+            raise UnsupportedCapability(Capability.ATTEMPT_COUNT.value, provider=self.backend)
+        return self._backend.attempt_count(self.external_id or self.id)
+
+    def delete_pending(self) -> None:
+        """Delete a pending provider delivery without promising to stop a running handler."""
+        if not self._backend.capabilities.supports(Capability.DELETE_PENDING):
+            raise UnsupportedCapability(Capability.DELETE_PENDING.value, provider=self.backend)
+        self._backend.delete_pending(self.external_id or self.id)
+
 
 __all__ = ["ExecutionHandle"]

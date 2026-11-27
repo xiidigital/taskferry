@@ -6,6 +6,16 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- Native Django `TaskContext` propagation for execution-context-capable backends.
+- `TaskferryTaskResult.provider_id`, while keeping `TaskResult.id` as the
+  Taskferry execution id.
+
+### Changed
+
+- Align `taskferry_django.__version__` with the distribution version `0.3.0`.
+
 ## [0.3.0] — 2026-11-26
 
 ### Changed

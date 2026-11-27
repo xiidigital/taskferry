@@ -64,13 +64,15 @@ from __future__ import annotations
 from .backend import TaskferryBackend
 from .config import config_from_settings, get_runtime, reset_runtime
 from .execute import run_task
+from .results import TaskferryTaskResult
 from .transaction import submit_on_commit, task_on_commit
 from .views import make_task_webhook, task_webhook
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "TaskferryBackend",
+    "TaskferryTaskResult",
     "__version__",
     "config_from_settings",
     "get_runtime",

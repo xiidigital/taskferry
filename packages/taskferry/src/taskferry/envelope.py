@@ -44,11 +44,13 @@ an unfamiliar version rather than guessing.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, TypedDict
 
 from .core.correlation import Correlation
 from .core.typing import JSONValue
 from .errors import SerializationError
+from .execution import ExecutionId
 from .retry import NO_RETRY, Backoff, RetryPolicy
 from .specs import TaskSpec
 
@@ -68,6 +70,7 @@ class Envelope(TypedDict, total=False):
     correlation: dict[str, str] | None
     labels: dict[str, str]
     retry: dict[str, JSONValue] | None
+    execution_id: str
 
 
 def build_envelope(spec: TaskSpec) -> Envelope:
@@ -86,6 +89,7 @@ def build_envelope(spec: TaskSpec) -> Envelope:
         "correlation": spec.correlation.to_headers() if spec.correlation else None,
         "labels": dict(spec.labels),
         "retry": encode_retry(spec.retry),
+        **({"execution_id": str(spec.execution_id)} if spec.execution_id else {}),
     }
 
 
@@ -155,7 +159,13 @@ def decode_retry(envelope: Envelope) -> RetryPolicy:
     )
 
 
-def execute_envelope(payload: Any, *, registry: Any = None) -> Any:
+def execute_envelope(
+    payload: Any,
+    *,
+    registry: Any = None,
+    attempt: int | None = None,
+    worker_id: str | None = None,
+) -> Any:
     """Validate, resolve and run one envelope. The whole worker side, in one call.
 
     Args:
@@ -177,7 +187,17 @@ def execute_envelope(payload: Any, *, registry: Any = None) -> Any:
     args = list(envelope.get("args") or [])
     kwargs = dict(envelope.get("kwargs") or {})
 
-    with use_correlation(read_correlation(envelope)):
+    from .execution_context import TaskExecutionContext, use_task_execution
+
+    context = TaskExecutionContext(
+        execution_id=(
+            None if not envelope.get("execution_id") else ExecutionId(str(envelope["execution_id"]))
+        ),
+        attempt=attempt,
+        worker_id=worker_id,
+        started_at=datetime.now(UTC),
+    )
+    with use_correlation(read_correlation(envelope)), use_task_execution(context):
         if is_async_callable(func):
             import asyncio
 

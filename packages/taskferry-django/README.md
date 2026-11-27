@@ -106,6 +106,27 @@ Taskferry has no portable progress reporting contract yet. Celery's persisted
 state can show queued/started/terminal state when configured, but richer progress
 belongs in application storage.
 
+### `TaskContext` and provider ids
+
+Tasks declared with Django's native `@task(takes_context=True)` receive Django's
+`TaskContext` from the Taskferry dispatcher. `context.task_result.id` is the
+portable Taskferry execution id; the enqueue result exposes the provider's
+separate native id as `result.provider_id` (for example, a Celery task UUID or a
+Cloud Tasks resource name). Reading `provider_id` does not require `get_result()`
+or a provider state lookup.
+
+Context tasks are accepted only on backends that supply the portable execution
+id and current attempt: the local thread backend, Celery, and Cloud Tasks. Other
+adapters reject them before enqueueing until they can provide that metadata.
+Celery uses its retry counter; Cloud Tasks uses
+`X-CloudTasks-TaskRetryCount + 1`; the thread backend counts its own retry loop.
+The context result is marked `RUNNING`, has current arguments and the observed
+start time, and reports the current attempt. `enqueued_at` is `None` because the
+dispatcher cannot recover the provider's enqueue timestamp. Prior attempt errors
+and worker history are not persisted by Taskferry; worker ids are included only
+when the engine exposes the current worker id. These fields are not a substitute
+for a durable Django `TaskResult` store, and `get_result()` remains unsupported.
+
 ## What else you get
 
 **Enqueue after commit.** The classic race — a worker reaching a row before the

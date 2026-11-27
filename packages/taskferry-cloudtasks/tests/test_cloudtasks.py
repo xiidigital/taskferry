@@ -28,6 +28,8 @@ class FakeTasksClient:
     def __init__(self, *, fail: bool = False) -> None:
         self.created: list[dict[str, Any]] = []
         self.fail = fail
+        self.deleted: list[str] = []
+        self.dispatch_count = 2
 
     def queue_path(self, project: str, location: str, queue: str) -> str:
         return f"projects/{project}/locations/{location}/queues/{queue}"
@@ -37,6 +39,12 @@ class FakeTasksClient:
             raise RuntimeError("RESOURCE_EXHAUSTED: queue is full")
         self.created.append(request)
         return SimpleNamespace(name=f"{request['parent']}/tasks/{len(self.created)}")
+
+    def get_task(self, *, request: dict[str, Any]) -> SimpleNamespace:
+        return SimpleNamespace(name=request["name"], dispatch_count=self.dispatch_count)
+
+    def delete_task(self, *, request: dict[str, Any]) -> None:
+        self.deleted.append(request["name"])
 
 
 def make_backend(**overrides: Any) -> CloudTasksBackend:
@@ -151,8 +159,49 @@ class TestCapabilities:
 
     def test_what_cloud_tasks_really_supports_is_advertised(self) -> None:
         capabilities = make_backend().capabilities
-        for supported in (Capability.DELAY, Capability.RETRY, Capability.DEDUPLICATION):
+        for supported in (
+            Capability.DELAY,
+            Capability.RETRY,
+            Capability.DEDUPLICATION,
+            Capability.ATTEMPT_COUNT,
+            Capability.DELETE_PENDING,
+            Capability.EXECUTION_CONTEXT,
+        ):
             assert supported in capabilities
+
+    def test_attempt_count_uses_the_provider_task_without_state_lookup(self) -> None:
+        client = FakeTasksClient()
+        backend = make_backend(client=client)
+        execution = backend.submit(TaskSpec(task="m:f"))
+
+        assert Capability.STATE not in backend.capabilities
+        assert backend.attempt_count(execution.id) == 2
+
+    def test_delete_pending_calls_delete_task_without_claiming_cancellation(self) -> None:
+        client = FakeTasksClient()
+        backend = make_backend(client=client)
+        execution = backend.submit(TaskSpec(task="m:f"))
+
+        backend.delete_pending(execution.id)
+
+        assert client.deleted == [execution.external_id]
+        assert Capability.CANCEL not in backend.capabilities
+
+    def test_a_handle_exposes_cloud_specific_attempts_and_pending_delete(self) -> None:
+        from taskferry import ExecutionKind, Router, Taskferry, TaskferryConfig
+
+        client = FakeTasksClient()
+        backend = make_backend(client=client)
+        runtime = Taskferry(
+            config=TaskferryConfig.local(),
+            backends={"cloudtasks": backend},
+            router=Router(defaults={ExecutionKind.TASK: "cloudtasks"}),
+        )
+        handle = runtime.submit(TaskSpec(task="m:f"))
+
+        assert handle.attempt_count() == 2
+        handle.delete_pending()
+        assert client.deleted == [handle.external_id]
 
 
 class TestConfiguration:
@@ -173,6 +222,17 @@ class TestReceiver:
             {"taskferry": MESSAGE_VERSION, "task": "tests:add", "args": [20, 22]}
         ).encode()
         assert handle_request(body, registry=registry) == 42
+
+    def test_cloud_retry_header_is_passed_as_the_current_attempt(self) -> None:
+        from taskferry.execution_context import current_task_execution
+
+        registry = FunctionRegistry()
+        registry.register(
+            lambda: current_task_execution().attempt,  # type: ignore[union-attr]
+            name="tests:attempt",
+        )
+        body = json.dumps({"taskferry": MESSAGE_VERSION, "task": "tests:attempt"}).encode()
+        assert handle_request(body, {"X-CloudTasks-TaskRetryCount": "2"}, registry=registry) == 3
 
     def test_a_malformed_body_is_rejected_loudly(self) -> None:
         """A misconfigured endpoint must not look like a successful no-op."""

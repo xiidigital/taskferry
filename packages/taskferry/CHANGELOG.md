@@ -4,6 +4,20 @@ All notable changes to `taskferry` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- Provider-observed `TaskExecutionContext` for portable execution identity,
+  attempt number, worker id and start time where an adapter can report them.
+- `ATTEMPT_COUNT` and `DELETE_PENDING` capabilities for provider operations that
+  are distinct from durable state and cancellation.
+
+### Changed
+
+- `ExecutionHandle` exposes capability-checked `attempt_count()` and
+  `delete_pending()` operations.
+
 ## [0.2.0] — 2026-07-26
 
 This release defines the portable Taskferry execution runtime. See

@@ -53,11 +53,14 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 from taskferry.core.correlation import Correlation, use_correlation
 from taskferry.envelope import read_envelope
 from taskferry.errors import SerializationError
+from taskferry.execution import ExecutionId
+from taskferry.execution_context import TaskExecutionContext, use_task_execution
 from taskferry.functions import FunctionRegistry, is_async_callable
 
 from .backend import CloudTasksMessage
@@ -106,11 +109,24 @@ def handle_request(
     kwargs = dict(message.get("kwargs") or {})
 
     with use_correlation(_correlation_from(message, headers)):
-        if is_async_callable(func):
-            import asyncio
+        normalized_headers = {key.lower(): value for key, value in (headers or {}).items()}
+        retry_count = normalized_headers.get("x-cloudtasks-taskretrycount")
+        attempt = None if retry_count is None else int(retry_count) + 1
+        execution_context = TaskExecutionContext(
+            execution_id=(
+                None
+                if not message.get("execution_id")
+                else ExecutionId(str(message["execution_id"]))
+            ),
+            attempt=attempt,
+            started_at=datetime.now(UTC),
+        )
+        with use_task_execution(execution_context):
+            if is_async_callable(func):
+                import asyncio
 
-            return asyncio.run(func(*args, **kwargs))
-        return func(*args, **kwargs)
+                return asyncio.run(func(*args, **kwargs))
+            return func(*args, **kwargs)
 
 
 def _correlation_from(message: CloudTasksMessage, headers: Mapping[str, str] | None) -> Correlation:
