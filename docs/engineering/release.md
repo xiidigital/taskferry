@@ -41,6 +41,8 @@ git tag taskferry-celery-vX.Y.Z && git push origin taskferry-celery-vX.Y.Z # pub
 The workflow derives the package from the tag, runs `uv build --package <dist>`,
 and publishes under a **GitHub Environment named after the distribution** (e.g.
 `taskferry-celery`), then uploads with `pypa/gh-action-pypi-publish` over OIDC.
+Before building, it verifies that the tag version matches the version in that
+distribution's `pyproject.toml`; a mismatch fails the workflow before upload.
 
 The per-distribution environment is what makes a monorepo work with Trusted
 Publishing: PyPI refuses two *pending* publishers that share an identical

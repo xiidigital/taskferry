@@ -42,7 +42,7 @@ from __future__ import annotations
 from .backend import CLOUD_TASKS_CAPABILITIES, CloudTasksBackend, make_backend
 from .receiver import handle_request, parse_request
 
-__version__ = "0.2.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "CLOUD_TASKS_CAPABILITIES",

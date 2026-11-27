@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.2.1] — 2026-11-27
+
 ### Added
 
 - Provider-observed `TaskExecutionContext` for portable execution identity,

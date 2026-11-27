@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.3.1] — 2026-11-27
+
 ### Added
 
 - `ATTEMPT_COUNT` through `get_task()` while Cloud Tasks retains the task, and
@@ -17,6 +19,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Keep `STATE`, `RESULT`, and `CANCEL` unadvertised; attempt inspection and
   pending-task deletion do not provide those semantics.
+- Align `taskferry_cloudtasks.__version__` with the distribution version `0.3.1`.
 
 ## [0.3.0] — 2026-09-19
 
