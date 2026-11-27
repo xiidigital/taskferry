@@ -7,12 +7,14 @@ be tested. The fake implements only the narrow surface the adapter touches.
 
 from __future__ import annotations
 
+import tomllib
 from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+import taskferry_celery
 from taskferry import BackendOptions, Capability, ExecutionState, TaskSpec
 from taskferry.contract import TaskBackendContract
 from taskferry.errors import ConfigurationError, ExecutionNotFound, SubmissionError
@@ -21,6 +23,14 @@ from taskferry.ports import ExecutionBackend
 from taskferry_celery import CeleryTaskBackend, map_state
 from taskferry_celery.message import MESSAGE_VERSION, build_message, check_version
 from taskferry_celery.worker import execute_message
+
+
+def test_package_version_matches_distribution_metadata() -> None:
+    from pathlib import Path
+
+    project_file = Path(__file__).parents[1] / "pyproject.toml"
+    project = tomllib.loads(project_file.read_text())
+    assert taskferry_celery.__version__ == project["project"]["version"]
 
 
 # --------------------------------------------------------------------------- #

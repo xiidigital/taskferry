@@ -36,17 +36,37 @@ jobs:
             echo "::error::Refusing to publish: tag commit is not in main history."
             exit 1
           fi
-      - name: Derive the package name from the tag
+      - name: Derive and validate the package version from the tag
         id: parse
         run: |
           tag="${GITHUB_REF_NAME}"
           package="${tag%-v*}"        # strip the trailing -v<version>
+          version="${tag##*-v}"
           if [ ! -d "packages/${package}" ]; then
             echo "::error::tag '${tag}' -> unknown package 'packages/${package}'"
             exit 1
           fi
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag '${tag}' must end in a semantic version (X.Y.Z)."
+            exit 1
+          fi
+          project_version="$(python - "${package}" <<'PY'
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          project_file = Path("packages") / sys.argv[1] / "pyproject.toml"
+          with project_file.open("rb") as stream:
+              print(tomllib.load(stream)["project"]["version"])
+          PY
+          )"
+          if [ "${version}" != "${project_version}" ]; then
+            echo "::error::tag '${tag}' requests ${version}, but ${package}/pyproject.toml declares ${project_version}."
+            exit 1
+          fi
           echo "package=${package}" >> "$GITHUB_OUTPUT"
-          echo "Building ${package} from tag ${tag}"
+          echo "package_version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Building ${package} ${version} from tag ${tag}"
       - name: Build the tagged distribution only
         run: uv build --package "${{ steps.parse.outputs.package }}" --out-dir dist
       - uses: actions/upload-artifact@v4

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import tomllib
+from pathlib import Path
+
 import pytest
 
+import taskferry
 from taskferry.core import (
     Capability,
     CapabilitySet,
@@ -34,6 +38,12 @@ from taskferry.core import (
     use_correlation,
 )
 from taskferry.core.observability import ATTR_PROVIDER, SPAN_JOB_SUBMIT
+
+
+def test_package_version_matches_distribution_metadata() -> None:
+    project_file = Path(__file__).parents[1] / "pyproject.toml"
+    project = tomllib.loads(project_file.read_text())
+    assert taskferry.__version__ == project["project"]["version"]
 
 
 # --------------------------------------------------------------------------- #

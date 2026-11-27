@@ -8,12 +8,14 @@ Everything else supports it.
 from __future__ import annotations
 
 import json
+import tomllib
 from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+import taskferry_cloudtasks
 from taskferry import BackendOptions, Capability, ExecutionState, TaskSpec
 from taskferry.contract import TaskBackendContract
 from taskferry.core.correlation import Correlation
@@ -22,6 +24,14 @@ from taskferry.functions import FunctionRegistry
 from taskferry.ports import ExecutionBackend
 from taskferry_cloudtasks import CloudTasksBackend, handle_request, parse_request
 from taskferry_cloudtasks.backend import MESSAGE_VERSION, build_message
+
+
+def test_package_version_matches_distribution_metadata() -> None:
+    from pathlib import Path
+
+    project_file = Path(__file__).parents[1] / "pyproject.toml"
+    project = tomllib.loads(project_file.read_text())
+    assert taskferry_cloudtasks.__version__ == project["project"]["version"]
 
 
 class FakeTasksClient:

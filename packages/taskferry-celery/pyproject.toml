@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "taskferry-celery"
-version = "0.2.0"
+version = "0.2.1"
 description = "Celery task backend for Taskferry — enqueue Taskferry tasks onto a Celery app."
 readme = "README.md"
 requires-python = ">=3.12"

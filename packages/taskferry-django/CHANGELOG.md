@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.3.1] — 2026-11-27
+
 ### Added
 
 - Native Django `TaskContext` propagation for execution-context-capable backends.
@@ -14,7 +16,7 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- Align `taskferry_django.__version__` with the distribution version `0.3.0`.
+- Align `taskferry_django.__version__` with the distribution version `0.3.1`.
 
 ## [0.3.0] — 2026-11-26
 
