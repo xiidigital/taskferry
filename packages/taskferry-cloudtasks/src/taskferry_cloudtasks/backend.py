@@ -7,9 +7,11 @@ Advertised: ``SUBMIT``, ``DELAY`` (``schedule_time``), ``RETRY`` (the queue's ow
 retry configuration), ``DEDUPLICATION`` (a task *name* is unique per queue, which
 is real deduplication with a documented window).
 
-Not advertised: ``STATE`` and ``RESULT``. Cloud Tasks is fire-and-forget — once a
-task is created there is no per-task status to read and no place a return value
-is kept. A handle from this backend therefore raises
+Not advertised: ``STATE``, ``RESULT`` or ``CANCEL``. Cloud Tasks retains a task
+while it is scheduled or retrying, so the adapter separately exposes its
+``dispatch_count`` and can delete the pending task resource. Those operations do
+not provide durable lifecycle state, a return value, or guaranteed interruption
+of an already-running handler. A handle from this backend therefore raises
 :class:`~taskferry.errors.UnsupportedCapability` on ``status()`` rather than
 returning a plausible-looking ``UNKNOWN`` forever, and an application that needs
 to know whether the work happened records that itself, in its own database, where
@@ -36,6 +38,7 @@ from taskferry.envelope import ENVELOPE_VERSION, Envelope, build_envelope
 from taskferry.errors import ConfigurationError, SubmissionError
 from taskferry.execution import (
     Execution,
+    ExecutionId,
     ExecutionKind,
     ExecutionState,
     new_execution_id,
@@ -52,6 +55,9 @@ CLOUD_TASKS_CAPABILITIES = frozenset(
         Capability.DELAY,
         Capability.RETRY,
         Capability.DEDUPLICATION,
+        Capability.EXECUTION_CONTEXT,
+        Capability.ATTEMPT_COUNT,
+        Capability.DELETE_PENDING,
     }
 )
 
@@ -115,6 +121,7 @@ class CloudTasksBackend(BaseBackend):
         self._client = client
         self._async_client = async_client
         self._name = name
+        self._provider_ids: dict[str, str] = {}
 
     @property
     def name(self) -> str:
@@ -192,8 +199,8 @@ class CloudTasksBackend(BaseBackend):
         self, spec: TaskSpec, created: Any, queue_path: str, queue: str
     ) -> Execution:
         external_id = getattr(created, "name", None)
-        return Execution(
-            id=new_execution_id(ExecutionKind.TASK),
+        execution = Execution(
+            id=spec.execution_id or new_execution_id(ExecutionKind.TASK),
             kind=ExecutionKind.TASK,
             backend=self._name,
             # QUEUED is the last thing this backend can honestly observe: Cloud
@@ -212,6 +219,9 @@ class CloudTasksBackend(BaseBackend):
             ),
             metadata={"queue": queue, "url": self._url},
         )
+        if external_id:
+            self._provider_ids[str(execution.id)] = str(external_id)
+        return execution
 
     def _submit(self, spec: ExecutionSpec) -> Execution:
         assert isinstance(spec, TaskSpec)
@@ -264,6 +274,26 @@ class CloudTasksBackend(BaseBackend):
             raise error from exc
         self.hooks.after_submit(spec, execution)
         return execution
+
+    def _task_name(self, execution_id: ExecutionId) -> str:
+        value = str(execution_id)
+        return self._provider_ids.get(value, value)
+
+    def _attempt_count(self, execution_id: ExecutionId) -> int:
+        """Return Cloud Tasks dispatch_count while the task is retained by Google."""
+        task = self._tasks().get_task(request={"name": self._task_name(execution_id)})
+        count = (
+            task.get("dispatch_count")
+            if isinstance(task, dict)
+            else getattr(task, "dispatch_count", None)
+        )
+        if count is None:
+            raise RuntimeError("Cloud Tasks get_task response did not include dispatch_count")
+        return int(count)
+
+    def _delete_pending(self, execution_id: ExecutionId) -> None:
+        """Delete a scheduled or dispatched task; an active handler may continue."""
+        self._tasks().delete_task(request={"name": self._task_name(execution_id)})
 
     @staticmethod
     def _correlation_headers(correlation: Correlation | None) -> dict[str, str]:

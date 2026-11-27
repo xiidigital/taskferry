@@ -58,10 +58,12 @@ def execute_message(
     message: TaskferryMessage,
     *,
     registry: FunctionRegistry | None = None,
+    attempt: int | None = None,
+    worker_id: str | None = None,
 ) -> Any:
     """Resolve and run one Taskferry message. Pure of Celery, so unit-testable."""
     check_version(message)
-    return execute_envelope(message, registry=registry)
+    return execute_envelope(message, registry=registry, attempt=attempt, worker_id=worker_id)
 
 
 def register_dispatcher(
@@ -97,10 +99,16 @@ def register_dispatcher(
     @app.task(name=name, **task_options)  # type: ignore[untyped-decorator]
     def _taskferry_dispatch(self: Any, message: TaskferryMessage) -> Any:
         policy = decode_retry(message)
+        request = getattr(self, "request", None)
+        attempt = int(getattr(request, "retries", 0) or 0) + 1
         try:
-            return execute_message(message, registry=registry)
+            return execute_message(
+                message,
+                registry=registry,
+                attempt=attempt,
+                worker_id=getattr(request, "hostname", None),
+            )
         except Exception as exc:
-            attempt = int(getattr(getattr(self, "request", None), "retries", 0) or 0) + 1
             if policy.should_retry(exc, attempt):
                 # Celery owns the retry — a real re-queue with a real countdown —
                 # rather than this function looping and holding a worker slot.

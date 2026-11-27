@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tomllib
 from typing import Any
 
 import pytest
@@ -21,8 +22,21 @@ from django.tasks import task
 from django.test import override_settings
 
 import taskferry_django
-from taskferry import Capability, ExecutionKind, ExecutionState, Taskferry, TaskferryConfig
-from taskferry_django import TaskferryBackend, config_from_settings, get_runtime, reset_runtime
+from taskferry import (
+    Capability,
+    ExecutionKind,
+    ExecutionState,
+    RetryPolicy,
+    Taskferry,
+    TaskferryConfig,
+)
+from taskferry_django import (
+    TaskferryBackend,
+    TaskferryTaskResult,
+    config_from_settings,
+    get_runtime,
+    reset_runtime,
+)
 from taskferry_django.checks import ID_LOCAL_IN_PRODUCTION, ID_NOT_WIRED, check_taskferry
 
 
@@ -34,6 +48,25 @@ def add(a: int, b: int) -> int:
 @task(queue_name="immediate")
 def ping() -> str:
     return "pong"
+
+
+@task(takes_context=True)
+def current_context(context: Any) -> dict[str, Any]:
+    return {
+        "id": context.task_result.id,
+        "attempt": context.attempt,
+        "status": context.task_result.status.value,
+        "enqueued_at": context.task_result.enqueued_at,
+        "started_at": context.task_result.started_at is not None,
+        "backend": context.task_result.backend,
+    }
+
+
+@task(takes_context=True)
+def retry_until_second_attempt(context: Any) -> int:
+    if context.attempt == 1:
+        raise ValueError("retry once")
+    return context.attempt
 
 
 @pytest.fixture(autouse=True)
@@ -77,6 +110,30 @@ class TestConfigFromSettings:
 
 
 class TestTaskferryBackend:
+    def test_a_context_task_receives_the_current_django_task_result(self) -> None:
+        result = current_context.enqueue()
+        execution = get_runtime().get(result.id).result(10)
+
+        assert isinstance(result, TaskferryTaskResult)
+        assert execution.value == {
+            "id": result.id,
+            "attempt": 1,
+            "status": "RUNNING",
+            "enqueued_at": None,
+            "started_at": True,
+            "backend": "default",
+        }
+
+    def test_context_attempt_tracks_a_thread_backend_retry(self) -> None:
+        backend = TaskferryBackend("default", {})
+        spec = backend.build_spec(retry_until_second_attempt, [], {}).evolve(
+            retry=RetryPolicy(max_attempts=2, initial_delay=0, jitter=False)
+        )
+
+        execution = get_runtime().submit(spec).result(10)
+
+        assert execution.value == 2
+
     def test_a_standard_django_enqueue_reaches_the_configured_engine(self) -> None:
         """The application code is ordinary Django. That is the whole point."""
         result = add.enqueue(20, 22)
@@ -164,6 +221,13 @@ class TestTaskferryBackend:
         assert backend.supports_get_result is False
         with pytest.raises(NotImplementedError, match="does not persist"):
             backend.get_result("task_whatever")
+
+    def test_context_tasks_require_an_execution_context_capable_backend(self) -> None:
+        from taskferry.errors import UnsupportedCapability
+
+        backend = TaskferryBackend("default", {"OPTIONS": {"backend": "subprocess"}})
+        with pytest.raises(UnsupportedCapability, match="execution_context"):
+            backend.enqueue(current_context, [], {})
 
     def test_the_state_mapping_covers_every_portable_state(self) -> None:
         """A new ExecutionState must not silently fall through to READY."""
@@ -265,6 +329,65 @@ class TestNoLeakage:
         )
         assert result.stdout.strip() == "ok"
 
+
+class TestProviderIds:
+    def test_package_version_matches_distribution_metadata(self) -> None:
+        from pathlib import Path
+
+        project_file = Path(__file__).parents[1] / "pyproject.toml"
+        project = tomllib.loads(project_file.read_text())
+        assert taskferry_django.__version__ == project["project"]["version"]
+
+    @staticmethod
+    def _enqueue_with(adapter: Any, name: str) -> TaskferryTaskResult:
+        from taskferry import Router
+
+        runtime = Taskferry(
+            config=TaskferryConfig.local(),
+            backends={name: adapter},
+            router=Router(defaults={ExecutionKind.TASK: name}),
+        )
+        backend = TaskferryBackend("default", {"OPTIONS": {"backend": name}})
+        backend.use_runtime(runtime)
+        return backend.enqueue(add, [2, 3], {})
+
+    def test_celery_provider_id_is_available_without_reading_state(self) -> None:
+        from taskferry_celery import CeleryTaskBackend
+
+        class CeleryClient:
+            conf = type("Conf", (), {"result_backend": ""})()
+
+            def send_task(self, *args: Any, **kwargs: Any) -> Any:
+                return type("Result", (), {"id": "native-celery-id"})()
+
+        result = self._enqueue_with(CeleryTaskBackend(app=CeleryClient()), "celery")
+
+        assert result.id.startswith("task_")
+        assert result.provider_id == "native-celery-id"
+
+    def test_cloud_tasks_provider_id_is_available_without_state_lookup(self) -> None:
+        from taskferry_cloudtasks import CloudTasksBackend
+
+        class CloudClient:
+            def queue_path(self, project: str, location: str, queue: str) -> str:
+                return f"projects/{project}/locations/{location}/queues/{queue}"
+
+            def create_task(self, *, request: dict[str, Any]) -> Any:
+                return type("Created", (), {"name": request["parent"] + "/tasks/native-id"})()
+
+        result = self._enqueue_with(
+            CloudTasksBackend(
+                project="p",
+                location="r",
+                url="https://example.test/task",
+                client=CloudClient(),
+            ),
+            "cloudtasks",
+        )
+
+        assert result.id.startswith("task_")
+        assert result.provider_id == "projects/p/locations/r/queues/default/tasks/native-id"
+
     def test_the_same_config_dict_serves_django_and_plain_python(self) -> None:
         """Lift the setting verbatim into a FastAPI service and it still works."""
         from django.conf import settings
@@ -280,6 +403,7 @@ class TestNoLeakage:
         """No parallel task API — Django already has one."""
         assert set(taskferry_django.__all__) == {
             "TaskferryBackend",
+            "TaskferryTaskResult",
             "__version__",
             "config_from_settings",
             "get_runtime",

@@ -50,7 +50,7 @@ from taskferry.core.serialization import ensure_json_serializable
 from taskferry.core.typing import JSONObject, JSONValue
 
 from .capabilities import Capability
-from .execution import ExecutionKind
+from .execution import ExecutionId, ExecutionKind
 from .functions import FunctionRef
 from .retry import NO_RETRY, NO_TIMEOUT, RetryPolicy, TimeoutPolicy
 
@@ -118,6 +118,8 @@ class ExecutionSpec:
     correlation: Correlation | None = None
     labels: Mapping[str, str] = field(default_factory=dict)
     backend_options: BackendOptions = field(default_factory=BackendOptions)
+    execution_id: ExecutionId | None = None
+    """Optional portable id supplied by an integration that must carry it in its payload."""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "labels", MappingProxyType(dict(self.labels)))

@@ -58,6 +58,15 @@ class Capability(_CapabilityBase):
     """Cancel a queued or running execution."""
 
     RETRY = "retry"
+
+    EXECUTION_CONTEXT = "execution_context"
+    """Provide portable execution identity and a truthful current attempt to workers."""
+
+    ATTEMPT_COUNT = "attempt_count"
+    """Report provider dispatch attempts while the provider still retains the task."""
+
+    DELETE_PENDING = "delete_pending"
+    """Delete a queued/delivered provider task without promising to stop running work."""
     """Apply a :class:`~taskferry.retry.RetryPolicy` natively."""
 
     TIMEOUT = "timeout"

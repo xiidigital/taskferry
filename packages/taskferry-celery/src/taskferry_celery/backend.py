@@ -71,6 +71,7 @@ CELERY_CAPABILITIES = frozenset(
         Capability.DELAY,
         Capability.PRIORITY,
         Capability.RETRY,
+        Capability.EXECUTION_CONTEXT,
     }
 )
 
@@ -207,7 +208,7 @@ class CeleryTaskBackend(BaseBackend):
             ) from exc
 
         task_id = str(getattr(async_result, "id", "") or "")
-        execution_id = new_execution_id(ExecutionKind.TASK)
+        execution_id = spec.execution_id or new_execution_id(ExecutionKind.TASK)
         self._ids.remember(str(execution_id), task_id)
         return Execution(
             id=execution_id,

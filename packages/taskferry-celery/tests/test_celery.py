@@ -290,6 +290,27 @@ class TestWorker:
                 registry=registry,
             )
 
+    def test_bound_dispatcher_passes_the_current_celery_attempt_and_worker(self) -> None:
+        from taskferry.execution_context import current_task_execution
+        from taskferry_celery import register_dispatcher
+
+        registry = FunctionRegistry()
+        registry.register(
+            lambda: (
+                current_task_execution().attempt,
+                current_task_execution().worker_id,
+            ),
+            name="tests:execution_context",
+        )
+        app = FakeCelery()
+        register_dispatcher(app, registry=registry)
+        dispatch, _ = app.registered["taskferry:dispatch"]
+        message = build_message(TaskSpec(task="tests:execution_context"))
+        request = SimpleNamespace(retries=1, hostname="worker-7")
+        bound = SimpleNamespace(request=request, retry=None)
+
+        assert dispatch(bound, message) == (2, "worker-7")
+
     def test_an_unknown_version_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="unsupported taskferry envelope version"):
             check_version({"taskferry": "99", "task": "m:f"})
