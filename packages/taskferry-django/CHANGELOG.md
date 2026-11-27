@@ -6,13 +6,15 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## [0.3.0] — 2026-11-26
+
 ### Changed
 
-- Require Django 6.0+, matching the native `django.tasks` imports. The package
-  does not target the third-party backport on Django 5.x.
-- Report that Django `TaskResult` retrieval is unsupported because the bridge
-  does not persist Django-specific result records. This corrects the previously
-  advertised `supports_get_result` flag.
+- **BREAKING**: Require Django 6.0+, matching the native `django.tasks` imports.
+  The package does not target the third-party backport on Django 5.x.
+- Do not advertise `supports_async_task` or `supports_get_result`: the dispatcher
+  is synchronous and the bridge does not persist Django-specific `TaskResult`
+  records. Calling `get_result()` raises `NotImplementedError`.
 
 ## [0.2.0] — 2026-07-26
 

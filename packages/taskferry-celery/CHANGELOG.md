@@ -5,6 +5,8 @@ rest of the family.
 
 ## Unreleased
 
+## [0.2.0] — 2026-11-26
+
 ### Changed
 
 - Advertise `RESULT` only when the configured Celery app has a result backend,
