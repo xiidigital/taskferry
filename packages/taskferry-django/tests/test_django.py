@@ -32,10 +32,12 @@ from taskferry import (
 )
 from taskferry_django import (
     TaskferryBackend,
+    TaskferryTask,
     TaskferryTaskResult,
     config_from_settings,
     get_runtime,
     reset_runtime,
+    with_retry_policy,
 )
 from taskferry_django.checks import ID_LOCAL_IN_PRODUCTION, ID_NOT_WIRED, check_taskferry
 
@@ -67,6 +69,26 @@ def retry_until_second_attempt(context: Any) -> int:
     if context.attempt == 1:
         raise ValueError("retry once")
     return context.attempt
+
+
+@task(retry_policy=RetryPolicy(max_attempts=2, initial_delay=0, jitter=False))
+def explicitly_retried() -> None:
+    """Exercise Django 6.1's custom task_class kwargs."""
+
+
+@task
+@with_retry_policy(RetryPolicy(max_attempts=2, initial_delay=0, jitter=False))
+def compatibility_retried() -> None:
+    """Compatibility form for Django 6.0, whose @task has no custom kwargs."""
+
+
+_exhaustion_attempts: list[int] = []
+
+
+@task(takes_context=True, retry_policy=RetryPolicy(max_attempts=2, initial_delay=0))
+def always_fails_with_context(context: Any) -> None:
+    _exhaustion_attempts.append(context.attempt)
+    raise ValueError("always fails")
 
 
 @pytest.fixture(autouse=True)
@@ -110,6 +132,22 @@ class TestConfigFromSettings:
 
 
 class TestTaskferryBackend:
+    def test_task_class_receives_native_django_task_options_and_retry_policy(self) -> None:
+        assert isinstance(explicitly_retried, TaskferryTask)
+        spec = TaskferryBackend("default", {}).build_spec(explicitly_retried, [], {})
+        assert spec.retry == explicitly_retried.retry_policy
+        assert spec.retry.max_attempts == 2
+
+    def test_unconfigured_tasks_keep_the_no_retry_behavior(self) -> None:
+        from taskferry.retry import NO_RETRY
+
+        assert TaskferryBackend("default", {}).build_spec(add, [1, 2], {}).retry == NO_RETRY
+
+    def test_django_60_compatibility_decorator_sets_retry_policy(self) -> None:
+        spec = TaskferryBackend("default", {}).build_spec(compatibility_retried, [], {})
+        assert spec.retry == compatibility_retried.retry_policy
+        assert spec.retry.max_attempts == 2
+
     def test_a_context_task_receives_the_current_django_task_result(self) -> None:
         result = current_context.enqueue()
         execution = get_runtime().get(result.id).result(10)
@@ -133,6 +171,15 @@ class TestTaskferryBackend:
         execution = get_runtime().submit(spec).result(10)
 
         assert execution.value == 2
+
+    def test_policy_on_django_task_retries_and_finishes_after_exhaustion(self) -> None:
+        _exhaustion_attempts.clear()
+        result = always_fails_with_context.enqueue()
+        execution = get_runtime().get(result.id).wait(10)
+
+        assert _exhaustion_attempts == [1, 2]
+        assert execution.state is ExecutionState.FAILED
+        assert execution.attempt == 2
 
     def test_a_standard_django_enqueue_reaches_the_configured_engine(self) -> None:
         """The application code is ordinary Django. That is the whole point."""
@@ -404,6 +451,7 @@ class TestProviderIds:
         assert set(taskferry_django.__all__) == {
             "TaskferryBackend",
             "TaskferryTaskResult",
+            "TaskferryTask",
             "__version__",
             "config_from_settings",
             "get_runtime",
@@ -413,6 +461,7 @@ class TestProviderIds:
             "submit_on_commit",
             "task_on_commit",
             "task_webhook",
+            "with_retry_policy",
         }
 
 
@@ -502,6 +551,28 @@ class TestWebhookView:
         view = make_task_webhook(registry=registry)
         with pytest.raises(RuntimeError, match="transient"):
             self._post(view, {"taskferry": ENVELOPE_VERSION, "task": "tests:boom"})
+
+    def test_exception_filter_acknowledges_a_permanent_failure(self) -> None:
+        from taskferry import FunctionRegistry, RetryPolicy
+        from taskferry.envelope import build_envelope
+        from taskferry.specs import TaskSpec
+        from taskferry_django.views import make_task_webhook
+
+        registry = FunctionRegistry()
+
+        def fail() -> None:
+            raise ValueError("permanent")
+
+        registry.register(fail, name="tests:permanent")
+        view = make_task_webhook(registry=registry)
+        envelope = build_envelope(
+            TaskSpec(
+                task="tests:permanent",
+                retry=RetryPolicy(max_attempts=5, retry_on=("ConnectionError",)),
+            )
+        )
+        response = self._post(view, envelope, HTTP_X_CLOUDTASKS_TASKRETRYCOUNT="0")
+        assert response.status_code == 204
 
     def test_authentication_is_enforced_when_supplied(self) -> None:
         """Taskferry cannot authenticate for you, but it makes doing so one argument."""

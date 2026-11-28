@@ -5,6 +5,11 @@ rest of the family.
 
 ## Unreleased
 
+### Changed
+
+- Apply per-message retry jitter and attempt limits in the Celery dispatcher;
+  reject automatic retry options that would introduce a second retry owner.
+
 ## [0.2.1] — 2026-11-27
 
 ### Added

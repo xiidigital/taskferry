@@ -84,7 +84,7 @@ that is what makes it portable, and it is why this part is yours.
 
 | Capability | Supported | Why |
 | ---------- | :-------: | --- |
-| `SUBMIT` · `DELAY` · `RETRY` | yes | `create_task`, `schedule_time`, queue retry config |
+| `SUBMIT` · `DELAY` · `RETRY` | yes | `create_task`, `schedule_time`, per-task retry config |
 | `DEDUPLICATION` | yes | task names are unique per queue for a bounded window |
 | `EXECUTION_CONTEXT` | yes | The push request includes the task identity and retry count |
 | `ATTEMPT_COUNT` | yes, while retained | `get_task()` reports `dispatch_count` for an existing task |
@@ -103,6 +103,27 @@ The push request's `X-CloudTasks-TaskRetryCount` header is passed through as the
 current Django `TaskContext.attempt` (`retry count + 1`). Cloud Tasks does not
 provide a worker id or the original enqueue timestamp to this adapter. Record
 durable progress, return values, or retry history in application-owned storage.
+
+### Per-task retries
+
+Each submitted task carries Cloud Tasks' task-level `RetryConfig`; this overrides
+the queue's retry configuration. `max_attempts` includes the first delivery. If
+the Taskferry policy has no retries, Taskferry sets `max_attempts=1` so a queue's
+default retry policy cannot add attempts. The task-level field requires
+`google-cloud-tasks>=2.26` (`pip install 'taskferry-cloudtasks[gcp]'`).
+
+Cloud Tasks supports fixed, linear, and capped exponential backoff, but its
+durations have whole-second precision. Taskferry rejects subsecond delays instead
+of rounding them, as well as immediate retries, more than 100 attempts, or
+backoff over one hour. The portable policy's jitter hint has no Cloud Tasks equivalent
+and is ignored. The portable policy has no maximum elapsed retry duration, so
+Taskferry sets `max_retry_duration="0s"` and relies on the configured attempt
+limit plus Cloud Tasks' task retention behavior. For exception filters, the HTTP
+receiver acknowledges a non-matching exception with 2xx to stop retries; the
+failure is logged, but Cloud Tasks does not retain a durable Taskferry failure
+record. A matching exception remains a failed delivery so Cloud Tasks can retry
+it until `max_attempts` is reached. Make handlers idempotent because delivery is
+at least once.
 
 ## License
 

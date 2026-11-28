@@ -129,7 +129,7 @@ from .specs import (
     TaskSpec,
 )
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 # Grouped by concept rather than alphabetically: this list doubles as the map of
 # the public API, and "everything about executions, together" is far more useful

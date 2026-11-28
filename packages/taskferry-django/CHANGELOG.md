@@ -6,6 +6,13 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- Portable per-task `RetryPolicy` support via Django 6.1's `@task(retry_policy=...)`
+  and the `with_retry_policy()` compatibility decorator for Django 6.0.
+- Translate retry attempts, backoff, delay limits, jitter, exception filters,
+  and retry ownership into provider behavior; task defaults remain one attempt.
+
 ## [0.3.1] — 2026-11-27
 
 ### Added

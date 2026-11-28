@@ -45,25 +45,45 @@ request object, which is the same reason it is portable.
 Delivery is at-least-once; nothing here changes that and nothing can.
 
 Returning 2xx acknowledges the task; raising (or returning 5xx) tells Cloud Tasks
-to retry according to the queue's retry configuration. Let exceptions propagate
-and the queue does the right thing.
+to retry according to the per-task retry configuration sent by Taskferry. When a
+portable exception filter excludes a failure, :func:`handle_request` returns a
+:class:`RetrySuppressed` marker instead of raising. Your endpoint should still
+return 2xx for that marker. The failure is logged; Cloud Tasks does not retain a
+durable Taskferry result.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
 from taskferry.core.correlation import Correlation, use_correlation
-from taskferry.envelope import read_envelope
+from taskferry.envelope import decode_retry, read_envelope
 from taskferry.errors import SerializationError
 from taskferry.execution import ExecutionId
 from taskferry.execution_context import TaskExecutionContext, use_task_execution
 from taskferry.functions import FunctionRegistry, is_async_callable
 
 from .backend import CloudTasksMessage
+
+logger = logging.getLogger("taskferry.cloudtasks")
+
+
+@dataclass(frozen=True, slots=True)
+class RetrySuppressed:
+    """A filtered task failure acknowledged to prevent a Cloud Tasks retry.
+
+    HTTP handlers should still return a 2xx response, which acknowledges the
+    delivery. The failure is logged here because Cloud Tasks does not persist a
+    Taskferry result or terminal failure record.
+    """
+
+    exception: Exception
+    attempt: int
 
 
 def parse_request(body: bytes | str) -> CloudTasksMessage:
@@ -107,11 +127,13 @@ def handle_request(
     func = resolver.resolve(str(message["task"]))
     args = list(message.get("args") or [])
     kwargs = dict(message.get("kwargs") or {})
+    policy = decode_retry(message)
 
     with use_correlation(_correlation_from(message, headers)):
         normalized_headers = {key.lower(): value for key, value in (headers or {}).items()}
         retry_count = normalized_headers.get("x-cloudtasks-taskretrycount")
-        attempt = None if retry_count is None else int(retry_count) + 1
+        attempt = 1 if retry_count is None else int(retry_count) + 1
+        current_attempt = attempt
         execution_context = TaskExecutionContext(
             execution_id=(
                 None
@@ -122,11 +144,21 @@ def handle_request(
             started_at=datetime.now(UTC),
         )
         with use_task_execution(execution_context):
-            if is_async_callable(func):
-                import asyncio
+            try:
+                if is_async_callable(func):
+                    import asyncio
 
-                return asyncio.run(func(*args, **kwargs))
-            return func(*args, **kwargs)
+                    return asyncio.run(func(*args, **kwargs))
+                return func(*args, **kwargs)
+            except Exception as exc:
+                if policy.filtered_out(exc, current_attempt):
+                    logger.exception(
+                        "acknowledging Cloud Tasks attempt %d: exception is excluded by "
+                        "RetryPolicy",
+                        current_attempt,
+                    )
+                    return RetrySuppressed(exception=exc, attempt=current_attempt)
+                raise
 
 
 def _correlation_from(message: CloudTasksMessage, headers: Mapping[str, str] | None) -> Correlation:
@@ -139,4 +171,4 @@ def _correlation_from(message: CloudTasksMessage, headers: Mapping[str, str] | N
     return Correlation.from_headers(embedded) if embedded else Correlation.start()
 
 
-__all__ = ["handle_request", "parse_request"]
+__all__ = ["RetrySuppressed", "handle_request", "parse_request"]

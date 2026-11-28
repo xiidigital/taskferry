@@ -6,6 +6,16 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Changed
+
+- Serialize `RetryPolicy` ownership and jitter in task envelopes, with backward
+  compatible defaults for existing envelopes.
+
+### Added
+
+- `RetryPolicy.accepts_exception()` and `filtered_out()` helpers for adapters
+  that need provider-specific exception-filter handling.
+
 ## [0.2.1] — 2026-11-27
 
 ### Added

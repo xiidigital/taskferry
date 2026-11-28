@@ -16,14 +16,23 @@ from typing import Any
 import pytest
 
 import taskferry_cloudtasks
-from taskferry import BackendOptions, Capability, ExecutionState, TaskSpec
+from taskferry import (
+    BackendOptions,
+    Backoff,
+    Capability,
+    ExecutionState,
+    RetryOwner,
+    RetryPolicy,
+    TaskSpec,
+)
 from taskferry.contract import TaskBackendContract
 from taskferry.core.correlation import Correlation
 from taskferry.errors import ConfigurationError, SerializationError, SubmissionError
 from taskferry.functions import FunctionRegistry
 from taskferry.ports import ExecutionBackend
 from taskferry_cloudtasks import CloudTasksBackend, handle_request, parse_request
-from taskferry_cloudtasks.backend import MESSAGE_VERSION, build_message
+from taskferry_cloudtasks.backend import MESSAGE_VERSION, build_message, cloud_tasks_retry_config
+from taskferry_cloudtasks.receiver import RetrySuppressed
 
 
 def test_package_version_matches_distribution_metadata() -> None:
@@ -139,6 +148,82 @@ class TestSubmission:
         )
         assert client.created[0]["task"]["dispatch_deadline"] == 900
 
+    def test_per_task_retry_policy_overrides_queue_retries(self) -> None:
+        client = FakeTasksClient()
+        make_backend(client=client).submit(
+            TaskSpec(
+                task="m:f",
+                retry=RetryPolicy(
+                    max_attempts=4,
+                    backoff=Backoff.EXPONENTIAL,
+                    initial_delay=3,
+                    max_delay=12,
+                    jitter=False,
+                ),
+            )
+        )
+        assert client.created[0]["task"]["retry_config"] == {
+            "max_attempts": 4,
+            "max_retry_duration": "0s",
+            "min_backoff": "3s",
+            "max_backoff": "12s",
+            "max_doublings": 2,
+        }
+
+    def test_default_policy_disables_queue_level_retries_for_task(self) -> None:
+        assert cloud_tasks_retry_config(RetryPolicy()) == {
+            "max_attempts": 1,
+            "max_retry_duration": "0s",
+        }
+
+    @pytest.mark.parametrize(
+        ("policy", "expected"),
+        [
+            (
+                RetryPolicy(max_attempts=4, backoff=Backoff.FIXED, initial_delay=3),
+                {
+                    "max_attempts": 4,
+                    "max_retry_duration": "0s",
+                    "min_backoff": "3s",
+                    "max_backoff": "3s",
+                    "max_doublings": 0,
+                },
+            ),
+            (
+                RetryPolicy(max_attempts=4, backoff=Backoff.LINEAR, initial_delay=2, max_delay=6),
+                {
+                    "max_attempts": 4,
+                    "max_retry_duration": "0s",
+                    "min_backoff": "2s",
+                    "max_backoff": "6s",
+                    "max_doublings": 0,
+                },
+            ),
+        ],
+    )
+    def test_fixed_and_linear_retry_policies_are_mapped(self, policy, expected) -> None:
+        assert cloud_tasks_retry_config(policy) == expected
+
+    def test_subsecond_delay_is_rejected_instead_of_rounded(self) -> None:
+        with pytest.raises(ConfigurationError, match="subsecond delay"):
+            cloud_tasks_retry_config(RetryPolicy(max_attempts=2, initial_delay=0.5))
+
+    def test_immediate_retry_is_rejected_because_cloud_tasks_requires_positive_backoff(
+        self,
+    ) -> None:
+        with pytest.raises(ConfigurationError, match="immediate retries"):
+            cloud_tasks_retry_config(
+                RetryPolicy(max_attempts=2, backoff=Backoff.NONE, initial_delay=0)
+            )
+
+    def test_cloud_tasks_attempt_and_backoff_limits_are_validated(self) -> None:
+        with pytest.raises(ConfigurationError, match="at most 100 attempts"):
+            cloud_tasks_retry_config(RetryPolicy(max_attempts=101))
+        with pytest.raises(ConfigurationError, match="up to 3600 seconds"):
+            cloud_tasks_retry_config(
+                RetryPolicy(max_attempts=2, initial_delay=3601, max_delay=None)
+            )
+
     def test_a_create_failure_becomes_a_submission_error(self) -> None:
         backend = make_backend(client=FakeTasksClient(fail=True))
         with pytest.raises(SubmissionError) as caught:
@@ -243,6 +328,53 @@ class TestReceiver:
         )
         body = json.dumps({"taskferry": MESSAGE_VERSION, "task": "tests:attempt"}).encode()
         assert handle_request(body, {"X-CloudTasks-TaskRetryCount": "2"}, registry=registry) == 3
+
+    def test_filtered_exception_is_acknowledged_with_a_suppression_marker(self) -> None:
+        registry = FunctionRegistry()
+
+        def permanent_failure() -> None:
+            raise ValueError("not transient")
+
+        registry.register(permanent_failure, name="tests:permanent")
+        message = build_message(
+            TaskSpec(
+                task="tests:permanent",
+                retry=RetryPolicy(max_attempts=3, retry_on=("ConnectionError",)),
+            )
+        )
+        result = handle_request(
+            json.dumps(message).encode(), {"X-CloudTasks-TaskRetryCount": "0"}, registry=registry
+        )
+        assert isinstance(result, RetrySuppressed)
+        assert result.attempt == 1
+
+    def test_matching_exception_remains_a_failed_delivery(self) -> None:
+        registry = FunctionRegistry()
+
+        def transient_failure() -> None:
+            raise ConnectionError("temporary")
+
+        registry.register(transient_failure, name="tests:transient")
+        message = build_message(
+            TaskSpec(
+                task="tests:transient",
+                retry=RetryPolicy(max_attempts=2, retry_on=("ConnectionError",)),
+            )
+        )
+        with pytest.raises(ConnectionError, match="temporary"):
+            handle_request(
+                json.dumps(message).encode(),
+                {"X-CloudTasks-TaskRetryCount": "1"},
+                registry=registry,
+            )
+
+    def test_application_owned_policy_does_not_configure_cloud_retries(self) -> None:
+        assert (
+            cloud_tasks_retry_config(RetryPolicy(max_attempts=5, owner=RetryOwner.APPLICATION))[
+                "max_attempts"
+            ]
+            == 1
+        )
 
     def test_a_malformed_body_is_rejected_loudly(self) -> None:
         """A misconfigured endpoint must not look like a successful no-op."""

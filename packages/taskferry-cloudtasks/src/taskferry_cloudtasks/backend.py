@@ -3,9 +3,9 @@
 Capabilities, and the two that are missing
 ------------------------------------------
 
-Advertised: ``SUBMIT``, ``DELAY`` (``schedule_time``), ``RETRY`` (the queue's own
-retry configuration), ``DEDUPLICATION`` (a task *name* is unique per queue, which
-is real deduplication with a documented window).
+Advertised: ``SUBMIT``, ``DELAY`` (``schedule_time``), ``RETRY`` (a per-task
+retry configuration that overrides queue defaults), ``DEDUPLICATION`` (a task
+*name* is unique per queue, which is real deduplication with a documented window).
 
 Not advertised: ``STATE``, ``RESULT`` or ``CANCEL``. Cloud Tasks retains a task
 while it is scheduled or retrying, so the adapter separately exposes its
@@ -26,6 +26,7 @@ by accident.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -44,6 +45,7 @@ from taskferry.execution import (
     new_execution_id,
 )
 from taskferry.ports import BaseBackend
+from taskferry.retry import Backoff, RetryPolicy
 from taskferry.specs import ExecutionSpec, TaskSpec
 
 MESSAGE_VERSION = ENVELOPE_VERSION
@@ -67,6 +69,71 @@ CloudTasksMessage = Envelope
 
 build_message = build_envelope
 """Serialize a spec into the HTTP body the receiver will decode."""
+
+_MAX_CLOUD_TASKS_DOUBLINGS = 16
+_MAX_CLOUD_TASKS_ATTEMPTS = 100
+_MAX_CLOUD_TASKS_BACKOFF_SECONDS = 3600
+
+
+def cloud_tasks_retry_config(policy: RetryPolicy) -> dict[str, Any]:
+    """Translate Taskferry's policy into Cloud Tasks' per-task RetryConfig.
+
+    Cloud Tasks task-level retry configuration overrides the queue's retry
+    configuration. Its duration fields are truncated to whole seconds, so a
+    subsecond Taskferry delay cannot be represented faithfully and is rejected.
+    The portable policy has no elapsed-time limit; ``0s`` means Cloud Tasks
+    applies only ``max_attempts`` (subject to Cloud Tasks' task-retention limit).
+    """
+    attempts = policy.engine_attempts
+    if attempts > _MAX_CLOUD_TASKS_ATTEMPTS:
+        raise ConfigurationError(
+            "Cloud Tasks supports at most 100 attempts per task; reduce max_attempts"
+        )
+    result: dict[str, Any] = {
+        "max_attempts": attempts,
+        "max_retry_duration": "0s",
+    }
+    if attempts <= 1:
+        return result
+
+    delays = [policy.delay_for(attempt) for attempt in range(2, attempts + 1)]
+    if any(not math.isfinite(delay) for delay in delays):
+        raise ConfigurationError("Cloud Tasks retry delays must be finite")
+    if any(not math.isclose(delay, round(delay), abs_tol=1e-9) for delay in delays):
+        raise ConfigurationError(
+            "Cloud Tasks truncates retry backoff durations to whole seconds; "
+            "this policy contains a subsecond delay"
+        )
+
+    min_delay = int(delays[0])
+    max_delay = int(max(delays))
+    if min_delay < 1:
+        raise ConfigurationError(
+            "Cloud Tasks truncates retry durations to whole seconds and requires a positive "
+            "minimum backoff; immediate retries cannot be represented"
+        )
+    if max_delay > _MAX_CLOUD_TASKS_BACKOFF_SECONDS:
+        raise ConfigurationError(
+            "Cloud Tasks supports retry backoff up to 3600 seconds; cap max_delay"
+        )
+    if policy.backoff is Backoff.EXPONENTIAL and min_delay > 0 and max_delay > min_delay:
+        doublings = math.ceil(math.log2(max_delay / min_delay))
+        if doublings > _MAX_CLOUD_TASKS_DOUBLINGS:
+            raise ConfigurationError(
+                "Cloud Tasks supports at most 16 exponential backoff doublings; "
+                "cap this policy's max_delay or use another backend"
+            )
+    else:
+        # With zero doublings, Cloud Tasks grows linearly by minBackoff. Equal
+        # min/max makes that sequence fixed; a zero interval is immediate.
+        doublings = 0
+
+    result.update(
+        min_backoff=f"{min_delay}s",
+        max_backoff=f"{max_delay}s",
+        max_doublings=doublings,
+    )
+    return result
 
 
 class CloudTasksBackend(BaseBackend):
@@ -183,6 +250,7 @@ class CloudTasksBackend(BaseBackend):
             http_request["oidc_token"] = oidc
 
         task: dict[str, Any] = {"http_request": http_request}
+        task["retry_config"] = cloud_tasks_retry_config(spec.retry)
         scheduled_for = spec.scheduled_for()
         if scheduled_for is not None:
             task["schedule_time"] = scheduled_for
@@ -356,5 +424,6 @@ __all__ = [
     "CloudTasksBackend",
     "CloudTasksMessage",
     "build_message",
+    "cloud_tasks_retry_config",
     "make_backend",
 ]
