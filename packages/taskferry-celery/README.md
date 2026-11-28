@@ -76,6 +76,14 @@ Retries are the **engine's**: the dispatcher raises Celery's own `self.retry`, s
 a failed task is genuinely re-queued with the requested countdown. Taskferry never
 loops in-process pretending to retry.
 
+The portable `RetryPolicy` counts the first delivery in `max_attempts`; its
+backoff, maximum delay, jitter and exception filters are applied per message.
+When no policy is declared, the dispatcher requests no retries. Configure one
+retry owner: `register_dispatcher()` rejects Celery automatic retry options such
+as `autoretry_for` because they would duplicate Taskferry's retry policy. If
+`RetryOwner.APPLICATION` is selected, Celery is configured for one attempt and
+the application owns subsequent submissions.
+
 `state` maps Celery's `PENDING/STARTED/SUCCESS/FAILURE/RETRY/REVOKED` onto the
 portable states. Set Celery's `task_track_started` if workers should persist the
 `STARTED` state. Celery reports `PENDING` for both a queued task and an unknown

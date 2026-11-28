@@ -65,13 +65,15 @@ from .backend import TaskferryBackend
 from .config import config_from_settings, get_runtime, reset_runtime
 from .execute import run_task
 from .results import TaskferryTaskResult
+from .tasks import TaskferryTask, with_retry_policy
 from .transaction import submit_on_commit, task_on_commit
 from .views import make_task_webhook, task_webhook
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 __all__ = [
     "TaskferryBackend",
+    "TaskferryTask",
     "TaskferryTaskResult",
     "__version__",
     "config_from_settings",
@@ -82,6 +84,7 @@ __all__ = [
     "submit_on_commit",
     "task_on_commit",
     "task_webhook",
+    "with_retry_policy",
 ]
 
 default_app_config = "taskferry_django.apps.TaskferryConfig"

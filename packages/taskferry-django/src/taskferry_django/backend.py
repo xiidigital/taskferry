@@ -31,12 +31,21 @@ from typing import Any
 from django.tasks.backends.base import BaseTaskBackend
 from django.tasks.base import Task, TaskResult, TaskResultStatus
 
-from taskferry import Capability, CapabilitySet, ExecutionKind, ExecutionState, Taskferry, TaskSpec
+from taskferry import (
+    Capability,
+    CapabilitySet,
+    ExecutionKind,
+    ExecutionState,
+    Taskferry,
+    TaskSpec,
+)
 from taskferry.execution import new_execution_id
+from taskferry.retry import NO_RETRY
 
 from .config import get_runtime
 from .execute import DISPATCH_REF
 from .results import TaskferryTaskResult
+from .tasks import TaskferryTask
 
 #: Portable state -> the Django Tasks status vocabulary. Django's enum is
 #: coarser than Taskferry's, so several states collapse; the mapping is written
@@ -70,6 +79,8 @@ class TaskferryBackend(BaseTaskBackend):
     Taskferry backend. Leave it out and the router decides from the task's queue,
     which is usually what you want — that is where the portability lives.
     """
+
+    task_class = TaskferryTask
 
     #: Django reads these at import time, before any task is enqueued, so they
     #: cannot depend on which backend a given task routes to. They are set
@@ -154,6 +165,7 @@ class TaskferryBackend(BaseTaskBackend):
             priority=task.priority,
             run_at=task.run_after,
             name=task.name,
+            retry=getattr(task, "retry_policy", None) or NO_RETRY,
             labels={"django_task": task.module_path},
             execution_id=(new_execution_id(ExecutionKind.TASK) if task.takes_context else None),
         )
@@ -200,4 +212,4 @@ class TaskferryBackend(BaseTaskBackend):
         )
 
 
-__all__ = ["TaskferryBackend", "TaskferryTaskResult"]
+__all__ = ["TaskferryBackend", "TaskferryTask", "TaskferryTaskResult"]

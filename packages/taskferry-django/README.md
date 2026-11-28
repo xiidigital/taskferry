@@ -106,6 +106,66 @@ Taskferry has no portable progress reporting contract yet. Celery's persisted
 state can show queued/started/terminal state when configured, but richer progress
 belongs in application storage.
 
+### Portable per-task retries
+
+Declare retry intent with Taskferry's provider-neutral `RetryPolicy`. Django 6.1
+passes custom `@task()` options to the configured backend's task class, so use
+the native decorator form:
+
+```python
+from django.tasks import task
+from taskferry import Backoff, RetryPolicy
+
+@task(
+    retry_policy=RetryPolicy(
+        max_attempts=4,             # includes the first attempt
+        backoff=Backoff.EXPONENTIAL,
+        initial_delay=2,
+        max_delay=30,
+        jitter=True,
+        retry_on=("ConnectionError", "myapp.errors.TemporaryFailure"),
+    )
+)
+def refresh_index(index_id: int) -> None:
+    ...
+```
+
+For Django 6.0, whose `@task` does not accept backend-specific keyword
+arguments, attach the same policy before decorating:
+
+```python
+from django.tasks import task
+from taskferry import RetryPolicy
+from taskferry_django import with_retry_policy
+
+@task
+@with_retry_policy(RetryPolicy(max_attempts=4, initial_delay=2))
+def refresh_index(index_id: int) -> None:
+    ...
+```
+
+With no policy, the backend keeps the current behavior: one attempt. A policy
+uses total attempts including the first; exception filters match exception class
+names or fully qualified class names, and `no_retry_on` takes precedence over
+`retry_on`. Delays are deterministic in the portable policy; Celery applies
+jitter when requested. Exactly one layer owns retries: by default the selected
+provider applies the policy. `owner=RetryOwner.APPLICATION` reserves retrying
+for application code and configures one provider attempt; `RetryOwner.NONE`
+disables retries.
+
+Cloud Tasks supports a per-task `RetryConfig`, which overrides queue retry
+settings. Taskferry sets it for every submitted task, including a one-attempt
+configuration when no policy is declared, so queue-wide retries do not silently
+change Django task semantics. Cloud Tasks has no jitter setting; jitter is
+ignored there. Its backoff durations have whole-second precision, so a policy
+with subsecond or immediate delays, more than 100 attempts, or backoff over one
+hour is rejected at submission. It has no exception-class
+filter: the receiver acknowledges a non-matching exception with HTTP 204 to stop
+further delivery and logs it. Cloud Tasks deletes completed and exhausted tasks,
+so this does not create a durable failure record. Persist outcomes in your own
+storage when you need them. The `gcp` extra requires `google-cloud-tasks>=2.26`
+for task-level retry configuration.
+
 ### `TaskContext` and provider ids
 
 Tasks declared with Django's native `@task(takes_context=True)` receive Django's

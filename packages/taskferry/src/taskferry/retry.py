@@ -142,12 +142,35 @@ class RetryPolicy:
         """
         if attempt >= self.max_attempts or self.owner is not RetryOwner.BACKEND:
             return False
+        return self.accepts_exception(exc)
+
+    def accepts_exception(self, exc: BaseException) -> bool:
+        """Whether the exception passes this policy's type filters.
+
+        This deliberately does not inspect the attempt count or owner. It is
+        useful to push providers that must acknowledge a filtered exception to
+        stop their queue from retrying it, while still allowing exhausted
+        attempts to remain visible as failed deliveries.
+        """
         names = _type_names(exc)
         if self.no_retry_on and names & set(self.no_retry_on):
             return False
         if self.retry_on:
             return bool(names & set(self.retry_on))
         return True
+
+    def filtered_out(self, exc: BaseException, attempt: int) -> bool:
+        """Whether a provider must stop delivery because a type filter vetoed it.
+
+        This is distinct from an exhausted attempt: a push handler can acknowledge
+        a filtered exception to prevent the queue from retrying, while leaving an
+        exhausted final delivery as a provider-visible failure.
+        """
+        return (
+            self.owner is RetryOwner.BACKEND
+            and attempt < self.engine_attempts
+            and not self.accepts_exception(exc)
+        )
 
 
 def _type_names(exc: BaseException) -> set[str]:

@@ -51,7 +51,7 @@ from .core.correlation import Correlation
 from .core.typing import JSONValue
 from .errors import SerializationError
 from .execution import ExecutionId
-from .retry import NO_RETRY, Backoff, RetryPolicy
+from .retry import NO_RETRY, Backoff, RetryOwner, RetryPolicy
 from .specs import TaskSpec
 
 ENVELOPE_VERSION = "2"
@@ -137,8 +137,10 @@ def encode_retry(policy: RetryPolicy) -> dict[str, JSONValue] | None:
         "backoff": policy.backoff.value,
         "initial_delay": policy.initial_delay,
         "max_delay": policy.max_delay,
+        "jitter": policy.jitter,
         "retry_on": list(policy.retry_on),
         "no_retry_on": list(policy.no_retry_on),
+        "owner": policy.owner.value,
     }
 
 
@@ -154,8 +156,10 @@ def decode_retry(envelope: Envelope) -> RetryPolicy:
         max_delay=(
             None if raw.get("max_delay") is None else float(raw["max_delay"])  # type: ignore[arg-type]
         ),
+        jitter=bool(raw.get("jitter", True)),
         retry_on=tuple(str(name) for name in (raw.get("retry_on") or [])),  # type: ignore[union-attr]
         no_retry_on=tuple(str(name) for name in (raw.get("no_retry_on") or [])),  # type: ignore[union-attr]
+        owner=RetryOwner(str(raw.get("owner", RetryOwner.BACKEND.value))),
     )
 
 

@@ -42,6 +42,7 @@ Write results where they belong instead of relying on the queue to keep them.
 from __future__ import annotations
 
 import logging
+import random
 from typing import Any
 
 from taskferry.envelope import execute_envelope
@@ -92,6 +93,21 @@ def register_dispatcher(
     Returns:
         The registered Celery task.
     """
+    retry_overrides = {
+        "autoretry_for",
+        "dont_autoretry_for",
+        "retry_kwargs",
+        "retry_backoff",
+        "retry_backoff_max",
+        "retry_jitter",
+    } & task_options.keys()
+    if retry_overrides:
+        names = ", ".join(sorted(retry_overrides))
+        raise ValueError(
+            f"Celery dispatcher retry options ({names}) conflict with Taskferry's "
+            "per-message RetryPolicy"
+        )
+
     task_options.setdefault("bind", True)
 
     # app is typed Any: celery must not be a hard dependency of this package, so
@@ -114,8 +130,14 @@ def register_dispatcher(
                 # rather than this function looping and holding a worker slot.
                 # RetryOwner: exactly one layer retries, and here it is the engine.
                 delay = policy.delay_for(attempt + 1)
+                if policy.jitter and delay > 0:
+                    delay = random.uniform(0, delay)
                 logger.info("requesting celery retry of attempt %d in %.1fs", attempt, delay)
-                raise self.retry(exc=exc, countdown=delay) from exc
+                raise self.retry(
+                    exc=exc,
+                    countdown=delay,
+                    max_retries=policy.engine_attempts - 1,
+                ) from exc
             raise
 
     return _taskferry_dispatch

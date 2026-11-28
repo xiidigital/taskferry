@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "taskferry-cloudtasks"
-version = "0.3.1"
+version = "0.4.0"
 description = "Google Cloud Tasks backend for Taskferry — push-based serverless tasks."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,7 +24,7 @@ classifiers = [
 dependencies = ["taskferry>=0.2,<0.3"]
 
 [project.optional-dependencies]
-gcp = ["google-cloud-tasks>=2.16"]
+gcp = ["google-cloud-tasks>=2.26"]
 
 [project.entry-points."taskferry.backends"]
 cloudtasks = "taskferry_cloudtasks:make_backend"

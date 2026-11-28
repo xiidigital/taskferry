@@ -57,7 +57,7 @@ from .backend import (
 )
 from .worker import build_message, execute_message, register_dispatcher
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 __all__ = [
     "CELERY_CAPABILITIES",

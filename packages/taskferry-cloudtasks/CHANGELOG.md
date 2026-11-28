@@ -6,6 +6,17 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- Translate each portable `RetryPolicy` into Cloud Tasks' per-task retry config,
+  overriding queue retry settings and preserving the no-retry default.
+- Acknowledge exception-filtered failures to prevent retries when their type is
+  excluded by the task policy.
+
+### Changed
+
+- Require `google-cloud-tasks>=2.26` in the `gcp` extra for per-task retry config.
+
 ## [0.3.1] — 2026-11-27
 
 ### Added

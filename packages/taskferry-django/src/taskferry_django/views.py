@@ -31,7 +31,8 @@ chosen to mean the right thing to it:
 | ran fine | 204 | acknowledge |
 | body is not a valid envelope | 400 | give up — retrying cannot help |
 | task name will not resolve | 404 | give up — permanent |
-| the task itself raised | 500 | retry, per its own configuration |
+| the task raised and another attempt is allowed | 500 | retry, per task policy |
+| exception is excluded by the task filter | 204 | acknowledge and stop retrying |
 
 A malformed body is *not* a 500. Retrying it forever would fill a dead-letter
 queue with a bug that no redelivery can fix.
@@ -56,7 +57,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from taskferry.envelope import execute_envelope
+from taskferry.envelope import decode_retry, execute_envelope, read_envelope
 from taskferry.errors import FunctionResolutionError, SerializationError
 from taskferry.functions import FunctionRegistry
 
@@ -115,8 +116,14 @@ def _execute(request: HttpRequest, registry: FunctionRegistry | None) -> HttpRes
     except (ValueError, UnicodeDecodeError) as exc:
         return JsonResponse({"error": f"invalid JSON body: {exc}"}, status=400)
 
+    retry_policy = None
+    attempt = 1
     try:
-        execute_envelope(payload, registry=registry)
+        envelope = read_envelope(payload)
+        retry_policy = decode_retry(envelope)
+        retry_count = request.headers.get("X-CloudTasks-TaskRetryCount")
+        attempt = int(retry_count) + 1 if retry_count is not None else 1
+        execute_envelope(envelope, registry=registry, attempt=attempt)
     except SerializationError as exc:
         # A malformed or version-skewed envelope. Retrying cannot fix it, so 400
         # tells the queue to stop rather than dead-lettering the same bug 25 times.
@@ -126,9 +133,17 @@ def _execute(request: HttpRequest, registry: FunctionRegistry | None) -> HttpRes
         # The name does not resolve, or the allowlist refused it. Permanent.
         logger.warning("taskferry: could not resolve a pushed task: %s", exc)
         return JsonResponse({"error": str(exc)}, status=404)
+    except Exception as exc:
+        if retry_policy is not None and retry_policy.filtered_out(exc, attempt):
+            logger.exception(
+                "acknowledging Cloud Tasks attempt %d: exception is excluded by RetryPolicy",
+                attempt,
+            )
+            return HttpResponse(status=204)
+        raise
 
-    # Anything the task itself raises propagates: Django turns it into a 500,
-    # which is how the push service is told to retry per its own configuration.
+    # An eligible failure propagates so Cloud Tasks can retry it according to
+    # the per-task RetryConfig translated from the portable policy.
     return HttpResponse(status=204)
 
 

@@ -15,7 +15,15 @@ from typing import Any
 import pytest
 
 import taskferry_celery
-from taskferry import BackendOptions, Capability, ExecutionState, TaskSpec
+from taskferry import (
+    BackendOptions,
+    Backoff,
+    Capability,
+    ExecutionState,
+    RetryOwner,
+    RetryPolicy,
+    TaskSpec,
+)
 from taskferry.contract import TaskBackendContract
 from taskferry.errors import ConfigurationError, ExecutionNotFound, SubmissionError
 from taskferry.functions import FunctionRegistry
@@ -320,6 +328,112 @@ class TestWorker:
         bound = SimpleNamespace(request=request, retry=None)
 
         assert dispatch(bound, message) == (2, "worker-7")
+
+    def test_dispatcher_gives_retry_ownership_to_celery_once(self, monkeypatch) -> None:
+        from taskferry_celery import register_dispatcher
+
+        registry = FunctionRegistry()
+
+        def fail() -> None:
+            raise ConnectionError("transient")
+
+        registry.register(fail, name="tests:fail")
+        app = FakeCelery()
+        dispatch = register_dispatcher(app, registry=registry)
+        message = build_message(
+            TaskSpec(
+                task="tests:fail",
+                retry=RetryPolicy(
+                    max_attempts=3,
+                    backoff=Backoff.FIXED,
+                    initial_delay=4,
+                    jitter=True,
+                    retry_on=("ConnectionError",),
+                ),
+            )
+        )
+        monkeypatch.setattr("taskferry_celery.worker.random.uniform", lambda low, high: high / 2)
+        calls: list[dict[str, Any]] = []
+
+        class FakeRetry(Exception):
+            pass
+
+        def celery_retry(**kwargs: Any) -> str:
+            calls.append(kwargs)
+            raise FakeRetry("scheduled")
+
+        bound = SimpleNamespace(request=SimpleNamespace(retries=0), retry=celery_retry)
+        with pytest.raises(FakeRetry, match="scheduled"):
+            dispatch(bound, message)
+        assert len(calls) == 1
+        assert isinstance(calls[0]["exc"], ConnectionError)
+        assert calls[0]["countdown"] == 2
+        assert calls[0]["max_retries"] == 2
+
+    def test_dispatcher_does_not_retry_filtered_exception_or_exhausted_attempt(self) -> None:
+        from taskferry_celery import register_dispatcher
+
+        registry = FunctionRegistry()
+
+        def value_error() -> None:
+            raise ValueError("permanent")
+
+        registry.register(value_error, name="tests:permanent")
+        dispatch = register_dispatcher(FakeCelery(), registry=registry)
+        message = build_message(
+            TaskSpec(
+                task="tests:permanent",
+                retry=RetryPolicy(max_attempts=3, retry_on=("ConnectionError",)),
+            )
+        )
+        calls: list[dict[str, Any]] = []
+        bound = SimpleNamespace(
+            request=SimpleNamespace(retries=0), retry=lambda **kwargs: calls.append(kwargs)
+        )
+        with pytest.raises(ValueError, match="permanent"):
+            dispatch(bound, message)
+        assert calls == []
+
+        retrying_registry = FunctionRegistry()
+        retrying_registry.register(value_error, name="tests:permanent")
+        dispatch = register_dispatcher(FakeCelery(), registry=retrying_registry)
+        unfiltered = build_message(
+            TaskSpec(task="tests:permanent", retry=RetryPolicy(max_attempts=2))
+        )
+        bound.request.retries = 1
+        with pytest.raises(ValueError, match="permanent"):
+            dispatch(bound, unfiltered)
+        assert calls == []
+
+    def test_application_owns_retries_and_celery_is_not_reconfigured(self) -> None:
+        from taskferry_celery import register_dispatcher
+
+        registry = FunctionRegistry()
+
+        def fail() -> None:
+            raise ConnectionError("transient")
+
+        registry.register(fail, name="tests:fail")
+        dispatch = register_dispatcher(FakeCelery(), registry=registry)
+        message = build_message(
+            TaskSpec(
+                task="tests:fail",
+                retry=RetryPolicy(max_attempts=5, owner=RetryOwner.APPLICATION),
+            )
+        )
+        calls: list[dict[str, Any]] = []
+        bound = SimpleNamespace(
+            request=SimpleNamespace(retries=0), retry=lambda **kwargs: calls.append(kwargs)
+        )
+        with pytest.raises(ConnectionError, match="transient"):
+            dispatch(bound, message)
+        assert calls == []
+
+    def test_autoretry_options_are_rejected_to_prevent_a_second_retry_owner(self) -> None:
+        from taskferry_celery import register_dispatcher
+
+        with pytest.raises(ValueError, match="conflict with Taskferry"):
+            register_dispatcher(FakeCelery(), autoretry_for=(Exception,))
 
     def test_an_unknown_version_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="unsupported taskferry envelope version"):
