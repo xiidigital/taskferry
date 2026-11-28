@@ -116,9 +116,10 @@ the native decorator form:
 from django.tasks import task
 from taskferry import Backoff, RetryPolicy
 
+
 @task(
     retry_policy=RetryPolicy(
-        max_attempts=4,             # includes the first attempt
+        max_attempts=4,  # includes the first attempt
         backoff=Backoff.EXPONENTIAL,
         initial_delay=2,
         max_delay=30,
@@ -126,8 +127,7 @@ from taskferry import Backoff, RetryPolicy
         retry_on=("ConnectionError", "myapp.errors.TemporaryFailure"),
     )
 )
-def refresh_index(index_id: int) -> None:
-    ...
+def refresh_index(index_id: int) -> None: ...
 ```
 
 For Django 6.0, whose `@task` does not accept backend-specific keyword
@@ -138,10 +138,10 @@ from django.tasks import task
 from taskferry import RetryPolicy
 from taskferry_django import with_retry_policy
 
+
 @task
 @with_retry_policy(RetryPolicy(max_attempts=4, initial_delay=2))
-def refresh_index(index_id: int) -> None:
-    ...
+def refresh_index(index_id: int) -> None: ...
 ```
 
 With no policy, the backend keeps the current behavior: one attempt. A policy
